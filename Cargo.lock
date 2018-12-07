@@ -81,12 +81,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-error"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "rppal"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "libc 0.2.44 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "storage-tank"
 version = "0.1.0"
 dependencies = [
  "gpio 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "medianheap 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rppal 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sysfs_gpio 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -121,6 +136,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum nix 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b7fd5681d13fda646462cfbd4e5f2051279a89a544d50eb98c365b507246839f"
 "checksum num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0b3a5d7cc97d6d30d8b9bc8fa19bf45349ffe46241e8816f50f62f6d6aaabee1"
 "checksum ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2f0015e9e8e28ee20c581cfbfe47c650cedeb9ed0721090e0b7ebb10b9cdbcc2"
+"checksum quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9274b940887ce9addde99c4eee6b5c44cc494b182b97e73dc8ffdcb3397fd3f0"
+"checksum rppal 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1154df4b7b87fdb9d0032c7af1b45f47247a4585b7ae71c06f2d3e1d152d3650"
 "checksum sysfs_gpio 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3d68f2cae3c7d39f54ce8a858cc31ffb01974744ee65e5b4999b6037cd691e3f"
 "checksum void 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
