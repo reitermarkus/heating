@@ -1,0 +1,10 @@
+[package]
+name = "storage-tank"
+version = "0.1.0"
+authors = ["Markus Reiter <me@reitermark.us>"]
+
+[dependencies]
+gpio = "0.4"
+sysfs_gpio = "0.5"
+medianheap = "0.1"
+ordered-float = "1.0"
