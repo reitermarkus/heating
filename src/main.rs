@@ -79,6 +79,7 @@ fn main() {
 
   let tank = CuboidTank::new(Length::from_centimeters(298.0), Length::from_centimeters(148.0), Length::from_centimeters(150.0));
   let mut heap = MedianHeap::with_max_size(10000);
+  let sensor_offset = Length::from_centimeters(4.0);
 
   loop {
     let distance = rx.recv().expect("failed to received distance to measurement thread");
@@ -90,7 +91,7 @@ fn main() {
     if heap.len() < buffer {
       println!("Waiting for first 1000 measurements: {:>#4}/{}", heap.len(), buffer);
     } else {
-      let median_distance = Length::from_millimeters((heap.median().unwrap() * 1000.0).round());
+      let median_distance = Length::from_millimeters((heap.median().unwrap() * 1000.0).round()) - sensor_offset;
 
       let filled_height = tank.height() - median_distance;
 
