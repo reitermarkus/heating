@@ -1,12 +1,8 @@
 [package]
-name = "storage-tank"
+name = "vessel"
 version = "0.1.0"
 authors = ["Markus Reiter <me@reitermark.us>"]
 edition = "2018"
 
 [dependencies]
-medianheap = "0.1"
-ordered-float = "1.0"
-rppal = "0.9"
-vessel = { path = "vessel" }
 measurements = "0.10"

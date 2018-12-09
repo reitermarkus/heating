@@ -1,23 +1,13 @@
-use std::error::Error;
 use std::sync::mpsc::channel;
 use std::time::{Instant, Duration};
 use std::thread;
 
-extern crate medianheap;
-extern crate ordered_float;
-extern crate rppal;
-extern crate sysfs_gpio;
-
 use medianheap::MedianHeap;
+use measurements::Length;
 use ordered_float::NotNan;
-use rppal::gpio::{Gpio, Level::*, Mode::*, Trigger};
-use sysfs_gpio::{Direction, Pin, Edge::*};
-
-mod tank;
-use tank::Tank;
-
-mod cuboid_tank;
-use cuboid_tank::CuboidTank;
+use rppal::gpio::{self, Gpio, Level::*, Mode::*, Trigger};
+use vessel::CuboidTank;
+use vessel::tank::Tank;
 
 const TEMPERATURE: f64 = 15.5; // °C
 const SPEED_OF_SOUND: f64 = 331.5 + 0.6 * TEMPERATURE; // m/s
@@ -25,7 +15,14 @@ const SPEED_OF_SOUND: f64 = 331.5 + 0.6 * TEMPERATURE; // m/s
 const TRIGGER_PIN: u8 = 17;
 const ECHO_PIN:    u8 = 18;
 
-fn measure_native(gpio: &mut Gpio) -> Option<f64> {
+#[derive(Debug)]
+enum Error {
+  NoRisingEdgeDetected,
+  NoFallingEdgeDetected,
+  GpioError(gpio::Error),
+}
+
+fn measure_native(gpio: &mut Gpio) -> Result<f64, Error> {
   gpio.write(TRIGGER_PIN, High);
   thread::sleep(Duration::from_micros(10));
   gpio.write(TRIGGER_PIN, Low);
@@ -34,86 +31,25 @@ fn measure_native(gpio: &mut Gpio) -> Option<f64> {
   let mut stop = None;
 
   loop {
-    match gpio.poll_interrupt(ECHO_PIN, false, Some(Duration::from_millis(200))) {
-      Ok(Some(High)) => {
+    match gpio.poll_interrupt(ECHO_PIN, false, Some(Duration::from_millis(100))).map_err(|err| Error::GpioError(err))? {
+      Some(High) => {
         if start.is_none() {
           start = Some(Instant::now());
         }
       },
-      Ok(Some(Low)) => {
+      Some(Low) => {
         if start.is_some() && stop.is_none() {
           stop = Some(Instant::now())
         }
       },
-      Ok(None) => break,
-      Err(err) => {
-        eprintln!("Error: {}", err);
-        return None
-      },
+      None => break,
     }
   }
 
-  if start.is_none() {
-    eprintln!("No rising edge detected.");
-  }
+  let start = start.ok_or(Error::NoRisingEdgeDetected)?;
+  let stop = stop.ok_or(Error::NoFallingEdgeDetected)?;
 
-  if stop.is_none() {
-    eprintln!("No falling edge detected.");
-  }
-
-  start.and_then(|start| stop.map(|stop| echo_duration_to_m(stop - start)))
-}
-
-fn measure_sysfs() -> Option<f64> {
-  let trigger = Pin::new(TRIGGER_PIN as u64);
-  let echo = Pin::new(ECHO_PIN as u64);
-
-  let (sender, receiver) = channel();
-
-  trigger.with_exported(|| {
-    echo.with_exported(|| {
-      trigger.set_direction(Direction::Out)?;
-      trigger.set_value(0)?;
-      echo.set_direction(Direction::In)?;
-
-      let mut poller = echo.get_poller()?;
-
-      let t = thread::spawn(move || -> sysfs_gpio::Result<()> {
-        echo.set_edge(RisingEdge)?;
-
-        let start = match poller.poll(10_000)? {
-          Some(_) => Instant::now(),
-          None => {
-            sender.send(None).unwrap();
-            return Ok(());
-          },
-        };
-
-        echo.set_edge(FallingEdge)?;
-
-        let stop = match poller.poll(10_000)? {
-          Some(_) => Instant::now(),
-          None => {
-            sender.send(None).unwrap();
-            return Ok(());
-          },
-        };
-
-        let distance = echo_duration_to_m(stop - start);
-        sender.send(Some(distance)).unwrap();
-
-        Ok(())
-      });
-
-      trigger.set_value(1)?;
-      thread::sleep(Duration::new(0, 10_000)); // 10 µs
-      trigger.set_value(0)?;
-
-      t.join().unwrap()
-    })
-  }).unwrap();
-
-  receiver.recv().unwrap()
+  Ok(echo_duration_to_m(stop - start))
 }
 
 #[inline(always)]
@@ -122,55 +58,46 @@ fn echo_duration_to_m(duration: Duration) -> f64 {
   echo_length / 2.0 * SPEED_OF_SOUND // m
 }
 
-fn main() -> Result<(), Box<Error>> {
-  let mut native_heap = MedianHeap::new();
+fn main() {
+  let mut gpio = Gpio::new().expect("failed to access GPIO");
 
-  {
-    let mut gpio = Gpio::new()?;
+  gpio.set_mode(TRIGGER_PIN, Output);
+  gpio.write(TRIGGER_PIN, Low);
+  gpio.set_mode(ECHO_PIN, Input);
 
-    gpio.set_mode(TRIGGER_PIN, Output);
-    gpio.write(TRIGGER_PIN, Low);
-    gpio.set_mode(ECHO_PIN, Input);
+  gpio.set_interrupt(ECHO_PIN, Trigger::Both).expect("failed to set interrupt on echo pin");
 
-    gpio.set_interrupt(ECHO_PIN, Trigger::Both)?;
+  let (tx, rx) = channel();
 
-    for _ in 0..10 {
-      if let Some(distance) = measure_native(&mut gpio) {
-        println!("Distance: {:?}", distance);
-
-        native_heap.push(NotNan::from((distance * 1000.0).round() / 10.0));
+  thread::spawn(move || {
+    loop {
+      if let Ok(distance) = measure_native(&mut gpio) {
+        tx.send(distance).expect("failed to send distance to main thread")
       }
     }
-  }
+  });
 
-  println!();
+  let tank = CuboidTank::new(Length::from_centimeters(298.0), Length::from_centimeters(148.0), Length::from_centimeters(150.0));
+  let mut heap = MedianHeap::with_max_size(10000);
 
-  let mut sysfs_heap = MedianHeap::new();
+  loop {
+    let distance = rx.recv().expect("failed to received distance to measurement thread");
 
-  for _ in 0..10 {
-    if let Some(distance) = measure_sysfs() {
-      println!("Distance: {:?}", distance);
+    heap.push(NotNan::from(distance));
 
-      sysfs_heap.push(NotNan::from((distance * 1000.0).round() / 10.0))
+    let buffer = 2000;
+
+    if heap.len() < buffer {
+      println!("Waiting for first 1000 measurements: {:>#4}/{}", heap.len(), buffer);
+    } else {
+      let median_distance = Length::from_millimeters((heap.median().unwrap() * 1000.0).round());
+
+      let filled_height = tank.height() - median_distance;
+
+      let level = tank.level(filled_height);
+
+      println!("Median: {}", median_distance);
+      println!("Tank: {} l ({} %)", level.volume().as_liters(), level.percentage() * 100.0)
     }
   }
-
-  println!();
-
-  println!("Native Median: {:?}", native_heap.median());
-  println!("SysFS Median: {:?}", sysfs_heap.median());
-
-  let mut tank = CuboidTank::new(298.0, 148.0, 150.0);
-
-  println!("Volume: {}", tank.volume());
-
-  let filled_height = tank.height - native_heap.median().unwrap().into_inner();
-
-  tank.set_filled_height(filled_height);
-
-  println!("Level: {}", tank.level());
-
-  println!("Filled Volume: {}", tank.level() * tank.volume());
-
-  Ok(())
 }
