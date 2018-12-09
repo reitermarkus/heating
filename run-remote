@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+set -o pipefail
+set -o nounset
+
+ip="${1}"
+
+./cargo-pi build --release &&
+rsync -avz ./ pi@"${ip}":reservoir/ --exclude target/debug --exclude target/release &&
+ssh pi@"${ip}" 'bash -l -c "cd reservoir && sudo ./target/arm-unknown-linux-gnueabihf/release/storage-tank"'
