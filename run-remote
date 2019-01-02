@@ -8,6 +8,7 @@ ip="${1}"
 
 TARGET='arm-unknown-linux-gnueabihf'
 
+# cross build --release --target "${TARGET}"
 ./cargo-pi build --release
 rsync -avz "target/${TARGET}/release/" pi@"${ip}:reservoir/"
 ssh pi@"${ip}" -t "./reservoir/storage-tank"
