@@ -17,46 +17,61 @@ const TRIGGER_PIN: u8 = 17;
 const ECHO_PIN:    u8 = 18;
 
 #[derive(Debug)]
-enum Error {
+pub enum Error {
   NoRisingEdgeDetected,
   NoFallingEdgeDetected,
-  GpioError(gpio::Error),
+  Gpio(gpio::Error),
 }
 
-fn measure_native(trigger: &mut OutputPin, echo: &mut InputPin) -> Result<f64, Error> {
-  trigger.set_high();
-  thread::sleep(Duration::from_micros(10));
-  trigger.set_low();
+#[derive(Debug)]
+pub struct HcSr04 {
+  trigger: OutputPin,
+  echo: InputPin,
+}
 
-  let mut start = None;
-  let mut stop = None;
+impl HcSr04 {
+  pub fn new(mut trigger: OutputPin, mut echo: InputPin) -> Result<HcSr04, Error> {
+    trigger.set_low();
+    echo.set_interrupt(Trigger::Both).map_err(|err| Error::Gpio(err))?;
 
-  loop {
-    match echo.poll_interrupt(false, Some(Duration::from_millis(100))).map_err(|err| Error::GpioError(err))? {
-      Some(High) => {
-        if start.is_none() {
-          start = Some(Instant::now());
-        }
-      },
-      Some(Low) => {
-        if start.is_some() && stop.is_none() {
-          stop = Some(Instant::now())
-        }
-      },
-      None => break,
-    }
+    Ok(HcSr04 { trigger, echo })
   }
 
-  let start = start.ok_or(Error::NoRisingEdgeDetected)?;
-  let stop = stop.ok_or(Error::NoFallingEdgeDetected)?;
+  pub fn measure(&mut self) -> Result<f64, Error> {
+    self.trigger.set_high();
+    thread::sleep(Duration::from_micros(10));
+    self.trigger.set_low();
 
-  Ok(echo_duration_to_m(stop - start))
-}
+    let mut start = None;
+    let mut stop = None;
 
-#[inline(always)]
-fn echo_duration_to_m(duration: Duration) -> f64 {
-  let echo_length = duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9;
-  echo_length / 2.0 * SPEED_OF_SOUND // m
+    loop {
+      match self.echo.poll_interrupt(false, Some(Duration::from_millis(100))).map_err(|err| Error::Gpio(err))? {
+        Some(High) => {
+          if start.is_none() {
+            start = Some(Instant::now());
+          }
+        },
+        Some(Low) => {
+          if start.is_some() && stop.is_none() {
+            stop = Some(Instant::now())
+          }
+        },
+        None => break,
+      }
+    }
+
+    let start = start.ok_or(Error::NoRisingEdgeDetected)?;
+    let stop = stop.ok_or(Error::NoFallingEdgeDetected)?;
+
+    #[inline(always)]
+    fn echo_duration_to_m(duration: Duration) -> f64 {
+      let echo_length = duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9;
+      echo_length / 2.0 * SPEED_OF_SOUND // m
+    }
+
+    Ok(echo_duration_to_m(stop - start))
+  }
 }
 
 fn main() {
@@ -72,21 +87,18 @@ fn main() {
     sig_tx.send(true).unwrap();
   });
 
+  let trigger = gpio.get(TRIGGER_PIN).unwrap().into_output();
+  let echo = gpio.get(ECHO_PIN).unwrap().into_input();
+
+  let mut sensor = HcSr04::new(trigger, echo).expect("failed to set up sensor");
+
   thread::spawn(move || {
-    let mut trigger_pin = gpio.get(TRIGGER_PIN).unwrap().into_output();
-
-    let mut echo_pin = gpio.get(ECHO_PIN).unwrap().into_input();
-
-    trigger_pin.set_low();
-
-    echo_pin.set_interrupt(Trigger::Both).expect("failed to set interrupt on echo pin");
-
     loop {
       if sig_rx.try_recv().unwrap_or(false) {
         break
       }
 
-      if let Ok(distance) = measure_native(&mut trigger_pin, &mut echo_pin) {
+      if let Ok(distance) = sensor.measure() {
         tx.send(distance).expect("failed to send distance to main thread")
       }
     }
