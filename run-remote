@@ -6,6 +6,8 @@ set -o nounset
 
 ip="${1}"
 
-./cargo-pi build --release &&
-rsync -avz ./ pi@"${ip}":reservoir/ --exclude target/debug --exclude target/release &&
-ssh pi@"${ip}" -t 'bash -l -c "stty isig intr ^C -echoctl && cd reservoir && sudo ./target/arm-unknown-linux-gnueabihf/release/storage-tank"'
+TARGET='arm-unknown-linux-gnueabihf'
+
+./cargo-pi build --release
+rsync -avz "target/${TARGET}/release/" pi@"${ip}:reservoir/"
+ssh pi@"${ip}" -t "./reservoir/storage-tank"

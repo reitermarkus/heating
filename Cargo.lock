@@ -1,4 +1,12 @@
 [[package]]
+name = "hc-sr04"
+version = "0.1.0"
+dependencies = [
+ "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rppal 0.10.0 (git+https://github.com/golemparts/rppal?rev=3932b8eb97e714d2715f3929555a3a0653ea565e)",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -62,6 +70,7 @@ dependencies = [
 name = "storage-tank"
 version = "0.1.0"
 dependencies = [
+ "hc-sr04 0.1.0",
  "measurements 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "medianheap 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
