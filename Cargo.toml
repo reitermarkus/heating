@@ -1,14 +1,19 @@
 [package]
-name = "storage-tank"
+name = "heating"
 version = "0.1.0"
 authors = ["Markus Reiter <me@reitermark.us>"]
 edition = "2018"
 
 [dependencies]
 hc-sr04 = { path = "hc-sr04" }
+lru_time_cache = "0.8"
 measurements = "0.10"
 medianheap = "0.1"
 ordered-float = "1.0"
 rppal = { version = "0.10.0", git = "https://github.com/golemparts/rppal", rev = "3932b8eb97e714d2715f3929555a3a0653ea565e" }
 simple-signal = "1"
 vessel = { path = "vessel" }
+serde_json = "1"
+rocket = "0.4"
+rocket_contrib = "0.4"
+vcontrol = { version = "0.1.0", git = "https://github.com/reitermarkus/vcontrold", branch = "rust" }
