@@ -1,6 +1,5 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-use std::env;
 use std::sync::{mpsc::channel, Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -78,8 +77,7 @@ const ECHO_PIN:    u8 = 18;
 const CACHE_DURATION: Duration = Duration::from_secs(60);
 
 fn main() {
-  let config_path = env::current_exe().unwrap().parent().unwrap().join("config.yml");
-  let config = Configuration::open(config_path).unwrap();
+  let config = Configuration::open("/etc/heating/config.yml").unwrap();
   let vcontrol = Mutex::new(VControl::from_config(config).unwrap());
   let vcontrol_cache = RwLock::new(LruCache::<String, Value>::with_expiry_duration(CACHE_DURATION));
 
