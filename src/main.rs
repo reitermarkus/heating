@@ -36,7 +36,7 @@ fn oiltank(heap: State<Arc<RwLock<MedianHeap<NotNan<f64>>>>>) -> Option<Json<ser
 }
 
 #[get("/vcontrol/<command>")]
-fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl>>, cache: State<Arc<RwLock<LruCache<String, Value>>>>) -> Option<Result<Json<Value>, vcontrol::Error>> {
+fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<Json<Value>, vcontrol::Error>> {
   if let Some(value) = cache.read().unwrap().peek(&command) {
     eprintln!("Using cached value for command '{}': {:?}", command, value);
     return Some(Ok(Json(value.clone())))
@@ -59,7 +59,7 @@ fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl>>, cache: State<
 }
 
 #[post("/vcontrol/<command>", format = "json", data = "<value>")]
-fn vcontrol_set(command: String, value: Json<Value>, vcontrol: State<Mutex<VControl>>, cache: State<Arc<RwLock<LruCache<String, Value>>>>) -> Option<Result<(), vcontrol::Error>> {
+fn vcontrol_set(command: String, value: Json<Value>, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
   let mut vcontrol = vcontrol.lock().unwrap();
 
   match vcontrol.set(&command, &value.0) {
@@ -81,7 +81,7 @@ fn main() {
   let config_path = env::current_exe().unwrap().parent().unwrap().join("config.yml");
   let config = Configuration::open(config_path).unwrap();
   let vcontrol = Mutex::new(VControl::from_config(config).unwrap());
-  let vcontrol_cache = Arc::new(RwLock::new(LruCache::<String, Value>::with_expiry_duration(CACHE_DURATION)));
+  let vcontrol_cache = RwLock::new(LruCache::<String, Value>::with_expiry_duration(CACHE_DURATION));
 
   let heap = Arc::new(RwLock::new(MedianHeap::with_max_size(10000)));
   let heap_clone = heap.clone();
