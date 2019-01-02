@@ -5,7 +5,8 @@ use std::thread;
 use medianheap::MedianHeap;
 use measurements::Length;
 use ordered_float::NotNan;
-use rppal::gpio::{self, Gpio, Level::*, Mode::*, Trigger};
+use rppal::gpio::{self, Gpio, OutputPin, InputPin, Level::*, Trigger};
+use simple_signal::{self, Signal};
 use vessel::CuboidTank;
 use vessel::tank::Tank;
 
@@ -22,16 +23,16 @@ enum Error {
   GpioError(gpio::Error),
 }
 
-fn measure_native(gpio: &mut Gpio) -> Result<f64, Error> {
-  gpio.write(TRIGGER_PIN, High);
+fn measure_native(trigger: &mut OutputPin, echo: &mut InputPin) -> Result<f64, Error> {
+  trigger.set_high();
   thread::sleep(Duration::from_micros(10));
-  gpio.write(TRIGGER_PIN, Low);
+  trigger.set_low();
 
   let mut start = None;
   let mut stop = None;
 
   loop {
-    match gpio.poll_interrupt(ECHO_PIN, false, Some(Duration::from_millis(100))).map_err(|err| Error::GpioError(err))? {
+    match echo.poll_interrupt(false, Some(Duration::from_millis(100))).map_err(|err| Error::GpioError(err))? {
       Some(High) => {
         if start.is_none() {
           start = Some(Instant::now());
@@ -59,19 +60,33 @@ fn echo_duration_to_m(duration: Duration) -> f64 {
 }
 
 fn main() {
-  let mut gpio = Gpio::new().expect("failed to access GPIO");
-
-  gpio.set_mode(TRIGGER_PIN, Output);
-  gpio.write(TRIGGER_PIN, Low);
-  gpio.set_mode(ECHO_PIN, Input);
-
-  gpio.set_interrupt(ECHO_PIN, Trigger::Both).expect("failed to set interrupt on echo pin");
+  let gpio = Gpio::new().expect("failed to access GPIO");
 
   let (tx, rx) = channel();
 
+  let (sig_tx, sig_rx) = channel();
+
+  simple_signal::set_handler(&[Signal::Int], move |signals| {
+    println!("Caught: {:?}", signals);
+    sig_tx.send(true).unwrap();
+    sig_tx.send(true).unwrap();
+  });
+
   thread::spawn(move || {
+    let mut trigger_pin = gpio.get(TRIGGER_PIN).unwrap().into_output();
+
+    let mut echo_pin = gpio.get(ECHO_PIN).unwrap().into_input();
+
+    trigger_pin.set_low();
+
+    echo_pin.set_interrupt(Trigger::Both).expect("failed to set interrupt on echo pin");
+
     loop {
-      if let Ok(distance) = measure_native(&mut gpio) {
+      if sig_rx.try_recv().unwrap_or(false) {
+        break
+      }
+
+      if let Ok(distance) = measure_native(&mut trigger_pin, &mut echo_pin) {
         tx.send(distance).expect("failed to send distance to main thread")
       }
     }
@@ -82,11 +97,14 @@ fn main() {
   let sensor_offset = Length::from_centimeters(4.0);
 
   loop {
-    let distance = rx.recv().expect("failed to received distance to measurement thread");
+    let distance = match rx.recv() {
+      Ok(distance) => distance,
+      _ => break
+    };
 
     heap.push(NotNan::from(distance));
 
-    let buffer = 2000;
+    let buffer = 100;
 
     if heap.len() < buffer {
       println!("Waiting for first 1000 measurements: {:>#4}/{}", heap.len(), buffer);

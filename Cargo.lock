@@ -1,6 +1,11 @@
 [[package]]
+name = "lazy_static"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "libc"
-version = "0.2.44"
+version = "0.2.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -36,11 +41,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "rppal"
-version = "0.9.0"
+version = "0.10.0"
+source = "git+https://github.com/golemparts/rppal?rev=3932b8eb97e714d2715f3929555a3a0653ea565e#3932b8eb97e714d2715f3929555a3a0653ea565e"
+dependencies = [
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "simple-signal"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "libc 0.2.44 (registry+https://github.com/rust-lang/crates.io-index)",
- "quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -50,7 +65,8 @@ dependencies = [
  "measurements 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "medianheap 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rppal 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rppal 0.10.0 (git+https://github.com/golemparts/rppal?rev=3932b8eb97e714d2715f3929555a3a0653ea565e)",
+ "simple-signal 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "vessel 0.1.0",
 ]
 
@@ -62,10 +78,12 @@ dependencies = [
 ]
 
 [metadata]
-"checksum libc 0.2.44 (registry+https://github.com/rust-lang/crates.io-index)" = "10923947f84a519a45c8fefb7dd1b3e8c08747993381adee176d7a82b4195311"
+"checksum lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a374c89b9db55895453a74c1e38861d9deec0b01b405a82516e9d5de4820dea1"
+"checksum libc 0.2.45 (registry+https://github.com/rust-lang/crates.io-index)" = "2d2857ec59fadc0773853c664d2d18e7198e83883e7060b63c924cb077bd5c74"
 "checksum measurements 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)" = "fb102b0fbcb75c01ae06999f5e7484d959eaf1afe95a1017942d9a4ce0db3acb"
 "checksum medianheap 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "243b090195f0aee77c57e8e5af0d914f4709fe5f72fd704e9090d26e3bccf98a"
 "checksum num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0b3a5d7cc97d6d30d8b9bc8fa19bf45349ffe46241e8816f50f62f6d6aaabee1"
 "checksum ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2f0015e9e8e28ee20c581cfbfe47c650cedeb9ed0721090e0b7ebb10b9cdbcc2"
 "checksum quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9274b940887ce9addde99c4eee6b5c44cc494b182b97e73dc8ffdcb3397fd3f0"
-"checksum rppal 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1154df4b7b87fdb9d0032c7af1b45f47247a4585b7ae71c06f2d3e1d152d3650"
+"checksum rppal 0.10.0 (git+https://github.com/golemparts/rppal?rev=3932b8eb97e714d2715f3929555a3a0653ea565e)" = "<none>"
+"checksum simple-signal 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "53f7da44adcc42667d57483bd93f81295f27d66897804b757573b61b6f13288b"
