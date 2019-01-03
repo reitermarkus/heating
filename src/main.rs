@@ -27,7 +27,7 @@ fn oiltank(heap: State<Arc<RwLock<MedianHeap<NotNan<f64>>>>>) -> Option<Json<ser
     let level = tank.level(filled_height);
 
     Json(json!({
-      "fill_height": filled_height.as_meters(),
+      "fill_height": filled_height.as_centimeters(),
       "volume": level.volume().as_liters(),
       "percentage": level.percentage() * 100.0,
     }))
