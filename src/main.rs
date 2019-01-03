@@ -1,5 +1,6 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
+use std::io::Read;
 use std::sync::{mpsc::channel, Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -10,7 +11,7 @@ use medianheap::MedianHeap;
 use measurements::Length;
 use ordered_float::NotNan;
 use rocket_contrib::json::{Json};
-use rocket::{self, get, post, routes, State};
+use rocket::{self, get, post, routes, State, Request, Data, Outcome, Outcome::*, data::{self, FromDataSimple}, http::Status};
 use rppal::gpio::Gpio;
 use serde_json::json;
 use simple_signal::{self, Signal};
@@ -32,6 +33,15 @@ fn oiltank(heap: State<Arc<RwLock<MedianHeap<NotNan<f64>>>>>) -> Option<Json<ser
       "percentage": level.percentage() * 100.0,
     }))
   })
+}
+
+#[get("/vcontrol/commands")]
+fn vcontrol_commands(commands: State<Vec<String>>) -> Option<Json<Vec<String>>> {
+  if commands.is_empty() {
+    return None
+  }
+
+  Some(Json(commands.to_vec()))
 }
 
 #[get("/vcontrol/<command>")]
@@ -57,11 +67,36 @@ fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl>>, cache: State<
   }
 }
 
+struct DataValue(Value);
+
+impl FromDataSimple for DataValue {
+  type Error = String;
+
+  fn from_data(req: &Request, data: Data) -> data::Outcome<Self, String> {
+    let mut string = String::new();
+
+    if let Err(e) = data.open().read_to_string(&mut string) {
+      return Failure((Status::InternalServerError, format!("{:?}", e)));
+    }
+
+    Success(DataValue(string.parse::<Value>().unwrap()))
+  }
+}
+
+#[post("/vcontrol/<command>", format = "plain", data = "<value>")]
+fn vcontrol_set_text(command: String, value: DataValue, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
+  vcontrol_set(command, value.0, vcontrol, cache)
+}
+
 #[post("/vcontrol/<command>", format = "json", data = "<value>")]
-fn vcontrol_set(command: String, value: Json<Value>, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
+fn vcontrol_set_json(command: String, value: Json<Value>, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
+  vcontrol_set(command, value.0, vcontrol, cache)
+}
+
+fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
   let mut vcontrol = vcontrol.lock().unwrap();
 
-  match vcontrol.set(&command, &value.0) {
+  match vcontrol.set(&command, &value) {
     Err(vcontrol::Error::UnsupportedCommand(_)) => None,
     res => {
       let mut cache = cache.write().unwrap();
@@ -78,6 +113,7 @@ const CACHE_DURATION: Duration = Duration::from_secs(60);
 
 fn main() {
   let config = Configuration::open("/etc/heating/config.yml").unwrap();
+  let commands: Vec<String> = config.commands().keys().map(|s| s.to_owned()).collect();
   let vcontrol = Mutex::new(VControl::from_config(config).unwrap());
   let vcontrol_cache = RwLock::new(LruCache::<String, Value>::with_expiry_duration(CACHE_DURATION));
 
@@ -88,7 +124,9 @@ fn main() {
   let trigger = gpio.get(TRIGGER_PIN).unwrap().into_output();
   let echo = gpio.get(ECHO_PIN).unwrap().into_input();
 
-  thread::spawn(|| {
+  let mut sensor = HcSr04::new(trigger, echo).expect("failed to set up sensor");
+
+  thread::spawn(move || {
     let (sig_tx, sig_rx) = channel();
 
     simple_signal::set_handler(&[Signal::Int], move |_| {
@@ -96,8 +134,6 @@ fn main() {
     });
 
     let heap = heap_clone;
-
-    let mut sensor = HcSr04::new(trigger, echo).expect("failed to set up sensor");
 
     loop {
       if sig_rx.try_recv().unwrap_or(false) {
@@ -115,8 +151,9 @@ fn main() {
 
   rocket::ignite()
     .manage(vcontrol)
+    .manage(commands)
     .manage(vcontrol_cache)
     .manage(heap.clone())
-    .mount("/", routes![oiltank, vcontrol_get, vcontrol_set])
+    .mount("/", routes![oiltank, vcontrol_commands, vcontrol_get, vcontrol_set_json, vcontrol_set_text])
     .launch();
 }

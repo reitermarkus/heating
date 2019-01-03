@@ -1006,7 +1006,7 @@ dependencies = [
 [[package]]
 name = "vcontrol"
 version = "0.1.0"
-source = "git+https://github.com/reitermarkus/vcontrold?branch=rust#8fc87a821d1e72ddc03482c5568ff9be71a71137"
+source = "git+https://github.com/reitermarkus/vcontrold?branch=rust#8cba000f19b0f8524ab754aee79b66a9de1bdc14"
 dependencies = [
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.84 (registry+https://github.com/rust-lang/crates.io-index)",
