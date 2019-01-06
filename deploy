@@ -14,7 +14,7 @@ vcontrol_root="$(dirname "$(cargo metadata --format-version 1 | jq -r '.packages
 vcontrol_config="${vcontrol_root}/config/default.yml"
 cp -f "${vcontrol_config}" "target/${TARGET}/release/config.yml"
 
-rsync -avz "target/${TARGET}/release/" pi@"${ip}:/tmp/heating/"
+rsync -avz --include heating --include config.yml --exclude '*' "target/${TARGET}/release/" pi@"${ip}:/tmp/heating/"
 
 ssh pi@"${ip}" sudo timedatectl set-timezone Europe/Vienna
 echo 'heizung' | ssh pi@"${ip}" sudo tee /etc/hostname
