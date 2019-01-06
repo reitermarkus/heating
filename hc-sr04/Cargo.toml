@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 ordered-float = "1.0"
-rppal = { version = "0.10.0", git = "https://github.com/golemparts/rppal", rev = "3932b8eb97e714d2715f3929555a3a0653ea565e" }
+rppal = { version = "0.10.0", git = "https://github.com/golemparts/rppal", rev = "79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540" }
