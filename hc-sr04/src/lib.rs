@@ -23,7 +23,7 @@ pub struct HcSr04 {
 impl HcSr04 {
   pub fn new(mut trigger: OutputPin, mut echo: InputPin) -> Result<HcSr04, Error> {
     trigger.set_low();
-    echo.set_interrupt(Trigger::Both).map_err(|err| Error::Gpio(err))?;
+    echo.set_interrupt(Trigger::Both).map_err(Error::Gpio)?;
 
     Ok(HcSr04 { trigger, echo })
   }
@@ -38,7 +38,7 @@ impl HcSr04 {
     let mut stop = None;
 
     loop {
-      match self.echo.poll_interrupt(false, Some(Duration::from_millis(100))).map_err(|err| Error::Gpio(err))? {
+      match self.echo.poll_interrupt(false, Some(Duration::from_millis(100))).map_err(Error::Gpio)? {
         Some(High) => {
           if start.is_none() {
             start = Some(Instant::now());
@@ -58,7 +58,7 @@ impl HcSr04 {
 
     let duration = stop - start;
 
-    let echo_length = duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9;
+    let echo_length = duration.as_secs() as f64 + f64::from(duration.subsec_nanos()) * 1e-9;
     let distance = echo_length / 2.0 * SPEED_OF_SOUND;
 
     Ok(NotNan::from(distance))
