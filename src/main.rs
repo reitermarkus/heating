@@ -1,5 +1,6 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
+use std::env;
 use std::io::Read;
 use std::sync::{mpsc::channel, Arc, Mutex, RwLock};
 use std::thread;
@@ -11,11 +12,11 @@ use medianheap::MedianHeap;
 use measurements::Length;
 use ordered_float::NotNan;
 use rocket_contrib::json::{Json};
-use rocket::{self, get, post, routes, State, Request, Data, Outcome, Outcome::*, data::{self, FromDataSimple}, http::Status};
+use rocket::{self, get, post, routes, State, Request, Data, Outcome::*, data::{self, FromDataSimple}, http::Status};
 use rppal::gpio::Gpio;
 use serde_json::json;
 use simple_signal::{self, Signal};
-use vcontrol::{self, VControl, Configuration, Value};
+use vcontrol::{self, Optolink, VControl, Configuration, Value};
 use vessel::{CuboidTank, Tank};
 
 #[get("/oiltank")]
@@ -112,9 +113,12 @@ const ECHO_PIN:    u8 = 18;
 const CACHE_DURATION: Duration = Duration::from_secs(60);
 
 fn main() {
-  let config = Configuration::open("/etc/heating/config.yml").unwrap();
+  let config = Configuration::open("/etc/heating/config.yml").expect("Failed to open configuration");
   let commands: Vec<String> = config.commands().keys().map(|s| s.to_owned()).collect();
-  let vcontrol = Mutex::new(VControl::from_config(config).unwrap());
+
+  let device = Optolink::open(env::var("OPTOLINK_DEVICE").unwrap()).expect("Failed to open Optolink device");
+  let vcontrol = Mutex::new(VControl::new(device, config.commands()));
+
   let vcontrol_cache = RwLock::new(LruCache::<String, Value>::with_expiry_duration(CACHE_DURATION));
 
   let heap = Arc::new(RwLock::new(MedianHeap::with_max_size(10000)));

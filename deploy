@@ -25,6 +25,7 @@ Description=heating
 
 [Service]
 Type=simple
+Environment=OPTOLINK_DEVICE=/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_A902YK66-if00-port0
 Environment=ROCKET_PORT=80
 Environment=ROCKET_SECRET_KEY="$(openssl rand -base64 32)"
 ExecStart=/usr/local/bin/heating
