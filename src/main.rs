@@ -16,7 +16,7 @@ use rocket::{self, get, post, routes, State, Request, Data, Outcome::*, data::{s
 use rppal::gpio::Gpio;
 use serde_json::json;
 use simple_signal::{self, Signal};
-use vcontrol::{self, Optolink, VControl, Configuration, Value};
+use vcontrol::{self, Optolink, VControl, Device, device::V200KW2, Value};
 use vessel::{CuboidTank, Tank};
 
 #[get("/oiltank")]
@@ -37,7 +37,7 @@ fn oiltank(heap: State<Arc<RwLock<MedianHeap<NotNan<f64>>>>>) -> Option<Json<ser
 }
 
 #[get("/vcontrol/commands")]
-fn vcontrol_commands(commands: State<Vec<String>>) -> Option<Json<Vec<String>>> {
+fn vcontrol_commands(commands: State<Vec<&'static str>>) -> Option<Json<Vec<&'static str>>> {
   if commands.is_empty() {
     return None
   }
@@ -46,7 +46,7 @@ fn vcontrol_commands(commands: State<Vec<String>>) -> Option<Json<Vec<String>>> 
 }
 
 #[get("/vcontrol/<command>")]
-fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<Json<Value>, vcontrol::Error>> {
+fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl<V200KW2>>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<Json<Value>, vcontrol::Error>> {
   if let Some(value) = cache.read().unwrap().peek(&command) {
     eprintln!("Using cached value for command '{}': {:?}", command, value);
     return Some(Ok(Json(value.clone())))
@@ -85,16 +85,16 @@ impl FromDataSimple for DataValue {
 }
 
 #[post("/vcontrol/<command>", format = "plain", data = "<value>")]
-fn vcontrol_set_text(command: String, value: DataValue, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
+fn vcontrol_set_text(command: String, value: DataValue, vcontrol: State<Mutex<VControl<V200KW2>>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
   vcontrol_set(command, value.0, vcontrol, cache)
 }
 
 #[post("/vcontrol/<command>", format = "json", data = "<value>")]
-fn vcontrol_set_json(command: String, value: Json<Value>, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
+fn vcontrol_set_json(command: String, value: Json<Value>, vcontrol: State<Mutex<VControl<V200KW2>>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
   vcontrol_set(command, value.0, vcontrol, cache)
 }
 
-fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
+fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl<V200KW2>>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
   let mut vcontrol = vcontrol.lock().unwrap();
 
   match vcontrol.set(&command, &value) {
@@ -113,11 +113,10 @@ const ECHO_PIN:    u8 = 18;
 const CACHE_DURATION: Duration = Duration::from_secs(60);
 
 fn main() {
-  let config = Configuration::open("/etc/heating/config.yml").expect("Failed to open configuration");
-  let commands: Vec<String> = config.commands().keys().map(|s| s.to_owned()).collect();
+  let commands = V200KW2::commands();
 
   let device = Optolink::open(env::var("OPTOLINK_DEVICE").unwrap()).expect("Failed to open Optolink device");
-  let vcontrol = Mutex::new(VControl::new(device, config.commands()));
+  let vcontrol = Mutex::new(VControl::<V200KW2>::new(device));
 
   let vcontrol_cache = RwLock::new(LruCache::<String, Value>::with_expiry_duration(CACHE_DURATION));
 
