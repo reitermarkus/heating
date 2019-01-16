@@ -6,6 +6,7 @@ use std::sync::{mpsc::channel, Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
 
+use fc113::Fc113;
 use hc_sr04::HcSr04;
 use lru_time_cache::LruCache;
 use medianheap::MedianHeap;
@@ -14,10 +15,14 @@ use ordered_float::NotNan;
 use rocket_contrib::json::{Json};
 use rocket::{self, get, post, routes, State, Request, Data, Outcome::*, data::{self, FromDataSimple}, http::Status};
 use rppal::gpio::Gpio;
+use rppal::i2c::I2c;
 use serde_json::json;
 use simple_signal::{self, Signal};
 use vcontrol::{self, Optolink, VControl, Device, device::V200KW2, Value};
 use vessel::{CuboidTank, Tank};
+
+mod lcd;
+use self::lcd::{update_lcd, Symbol::*};
 
 #[get("/oiltank")]
 fn oiltank(heap: State<Arc<RwLock<MedianHeap<NotNan<f64>>>>>) -> Option<Json<serde_json::value::Value>> {
@@ -129,6 +134,17 @@ fn main() {
 
   let mut sensor = HcSr04::new(trigger, echo).expect("failed to set up sensor");
 
+  let i2c = I2c::new().expect("failed to access I2C bus");
+  let mut lcd = Fc113::new(i2c, 2).unwrap();
+
+  lcd.create_char(Droplet      as usize, Droplet).unwrap();
+  lcd.create_char(OeLowercase  as usize, OeLowercase).unwrap();
+  lcd.create_char(Liter        as usize, Liter).unwrap();
+  lcd.create_char(PercentLeft  as usize, PercentLeft).unwrap();
+  lcd.create_char(PercentRight as usize, PercentRight).unwrap();
+
+  update_lcd(&mut lcd, 0.0, 0.0).unwrap();
+
   thread::spawn(move || {
     let (sig_tx, sig_rx) = channel();
 
@@ -138,14 +154,31 @@ fn main() {
 
     let heap = heap_clone;
 
+    let mut i = 0;
+
     loop {
       if sig_rx.try_recv().unwrap_or(false) {
         break
       }
 
       if let Ok(distance) = sensor.measure() {
+        i = (i + 1) % 100;
+
         let mut heap = heap.write().unwrap();
         heap.push(distance);
+
+        if i == 0 {
+          if let Some(median) = heap.median() {
+            let tank = CuboidTank::new(Length::from_centimeters(298.0), Length::from_centimeters(148.0), Length::from_centimeters(150.0));
+            let sensor_offset = Length::from_centimeters(4.0);
+            let median_distance = Length::from_millimeters((median * 1000.0).round()) - sensor_offset;
+            let filled_height = tank.height() - median_distance;
+            let level = tank.level(filled_height);
+
+            println!("Updating LCD …");
+            update_lcd(&mut lcd, level.volume().as_liters(), level.percentage() * 100.0).unwrap();
+          }
+        }
       }
     }
 
