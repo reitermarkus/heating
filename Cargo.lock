@@ -161,6 +161,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fc113"
+version = "0.1.0"
+dependencies = [
+ "rppal 0.10.0 (git+https://github.com/golemparts/rppal?rev=79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540)",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -219,6 +226,7 @@ dependencies = [
 name = "heating"
 version = "0.1.0"
 dependencies = [
+ "fc113 0.1.0",
  "hc-sr04 0.1.0",
  "lru_time_cache 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "measurements 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
