@@ -43,3 +43,5 @@ ssh pi@"${ip}" sudo cp -f /tmp/heating/heating /usr/local/bin/heating
 ssh pi@"${ip}" sudo mkdir -p /etc/heating
 ssh pi@"${ip}" sudo systemctl enable heating
 ssh pi@"${ip}" sudo systemctl restart heating
+
+ssh pi@"${ip}" < setup_watchdog.sh
