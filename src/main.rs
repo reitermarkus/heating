@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use fc113::Fc113;
 use hc_sr04::HcSr04;
+use lazy_static::lazy_static;
 use lru_time_cache::LruCache;
 use medianheap::MedianHeap;
 use measurements::Length;
@@ -24,19 +25,47 @@ use vessel::{CuboidTank, Tank};
 mod lcd;
 use self::lcd::{update_lcd, Symbol::*};
 
+const TRIGGER_PIN: u8 = 17;
+const ECHO_PIN:    u8 = 18;
+
+const CACHE_DURATION: Duration = Duration::from_secs(60);
+
+lazy_static! {
+  static ref TANK: CuboidTank = CuboidTank::new(
+    Length::from_centimeters(298.0),
+    Length::from_centimeters(148.0),
+    Length::from_centimeters(150.0),
+  );
+
+  static ref SENSOR_OFFSET: Length = Length::from_centimeters(4.0);
+}
+
+fn tank_level(median: NotNan<f64>) -> (f64, f64, f64) {
+  let millimeters = (median * 1000.0).round();
+
+  let mut distance = Length::from_millimeters(millimeters) - *SENSOR_OFFSET;
+
+  if distance < Length::from_meters(0.0) {
+    distance = Length::from_meters(0.0)
+  } else if distance > TANK.height() {
+    distance = TANK.height()
+  }
+
+  let filled_height = TANK.height() - distance;
+  let level = TANK.level(filled_height);
+
+  (filled_height.as_centimeters(), level.volume().as_liters(), level.percentage() * 100.0)
+}
+
 #[get("/oiltank")]
 fn oiltank(heap: State<Arc<RwLock<MedianHeap<NotNan<f64>>>>>) -> Option<Json<serde_json::value::Value>> {
   heap.read().unwrap().median().map(|median| {
-    let tank = CuboidTank::new(Length::from_centimeters(298.0), Length::from_centimeters(148.0), Length::from_centimeters(150.0));
-    let sensor_offset = Length::from_centimeters(4.0);
-    let median_distance = Length::from_millimeters((median * 1000.0).round()) - sensor_offset;
-    let filled_height = tank.height() - median_distance;
-    let level = tank.level(filled_height);
+    let (height, volume, percentage) = tank_level(median);
 
     Json(json!({
-      "fill_height": filled_height.as_centimeters(),
-      "volume": level.volume().as_liters(),
-      "percentage": level.percentage() * 100.0,
+      "fill_height": height,
+      "volume": volume,
+      "percentage": percentage,
     }))
   })
 }
@@ -112,11 +141,6 @@ fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl<V2
   }
 }
 
-const TRIGGER_PIN: u8 = 17;
-const ECHO_PIN:    u8 = 18;
-
-const CACHE_DURATION: Duration = Duration::from_secs(60);
-
 fn main() {
   let commands = V200KW2::commands();
 
@@ -169,14 +193,10 @@ fn main() {
 
         if i == 0 {
           if let Some(median) = heap.median() {
-            let tank = CuboidTank::new(Length::from_centimeters(298.0), Length::from_centimeters(148.0), Length::from_centimeters(150.0));
-            let sensor_offset = Length::from_centimeters(4.0);
-            let median_distance = Length::from_millimeters((median * 1000.0).round()) - sensor_offset;
-            let filled_height = tank.height() - median_distance;
-            let level = tank.level(filled_height);
+            let (height, volume, percentage) = tank_level(median);
 
             println!("Updating LCD …");
-            update_lcd(&mut lcd, level.volume().as_liters(), level.percentage() * 100.0).unwrap();
+            update_lcd(&mut lcd, volume, percentage).unwrap();
           }
         }
       }

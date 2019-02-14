@@ -8,6 +8,7 @@ edition = "2018"
 fc113 = { path = "fc113" }
 hc-sr04 = { path = "hc-sr04" }
 lru_time_cache = "0.8"
+lazy_static = "*"
 measurements = "0.10"
 medianheap = "0.2"
 ordered-float = "1.0"
