@@ -11,7 +11,7 @@ lru_time_cache = "0.8"
 measurements = "0.10"
 medianheap = "0.2"
 ordered-float = "1.0"
-rppal = { version = "0.10.0", git = "https://github.com/golemparts/rppal", rev = "79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540" }
+rppal = "0.10"
 simple-signal = "1"
 vessel = { path = "vessel" }
 serde_json = "1"

@@ -5,4 +5,4 @@ authors = ["Markus Reiter <me@reitermark.us>"]
 edition = "2018"
 
 [dependencies]
-rppal = { version = "0.10.0", git = "https://github.com/golemparts/rppal", rev = "79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540" }
+rppal = "0.10"

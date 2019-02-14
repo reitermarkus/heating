@@ -149,7 +149,7 @@ dependencies = [
 name = "fc113"
 version = "0.1.0"
 dependencies = [
- "rppal 0.10.0 (git+https://github.com/golemparts/rppal?rev=79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540)",
+ "rppal 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -204,7 +204,7 @@ name = "hc-sr04"
 version = "0.1.0"
 dependencies = [
  "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rppal 0.10.0 (git+https://github.com/golemparts/rppal?rev=79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540)",
+ "rppal 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -219,7 +219,7 @@ dependencies = [
  "ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rocket 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rocket_contrib 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rppal 0.10.0 (git+https://github.com/golemparts/rppal?rev=79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540)",
+ "rppal 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.38 (registry+https://github.com/rust-lang/crates.io-index)",
  "simple-signal 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "vcontrol 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -241,7 +241,7 @@ dependencies = [
  "language-tags 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "mime 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "num_cpus 1.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num_cpus 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
  "traitobject 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "typeable 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -399,12 +399,8 @@ dependencies = [
 
 [[package]]
 name = "memchr"
-version = "2.1.3"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "mime"
@@ -502,7 +498,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "num_cpus"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -719,8 +715,8 @@ dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "isatty 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "memchr 2.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "num_cpus 1.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "memchr 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num_cpus 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pear 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rocket_codegen 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rocket_http 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -775,7 +771,7 @@ dependencies = [
 [[package]]
 name = "rppal"
 version = "0.10.0"
-source = "git+https://github.com/golemparts/rppal?rev=79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540#79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1198,7 +1194,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum matches 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
 "checksum measurements 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)" = "fb102b0fbcb75c01ae06999f5e7484d959eaf1afe95a1017942d9a4ce0db3acb"
 "checksum medianheap 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5414eb8429bb8f90ebafdf2c732a5ede250ed4c6048605bed08f7d9d4353341d"
-"checksum memchr 2.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e1dd4eaac298c32ce07eb6ed9242eda7d82955b9170b7d6db59b2e02cc63fcb8"
+"checksum memchr 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2efc7bc57c883d4a4d6e3246905283d8dae951bb3bd32f49d6ef297f546e1c39"
 "checksum mime 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ba626b8a6de5da682e1caa06bdb42a335aee5a84db8e5046a3e8ab17ba0a3ae0"
 "checksum min-max-heap 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f4c4c98e56ed3027c65dd9a7d10bd0b7d8fbdf2f5769c2dd4ac91a79b896ed65"
 "checksum mio 0.6.16 (registry+https://github.com/rust-lang/crates.io-index)" = "71646331f2619b1026cc302f87a2b8b648d5c6dd6937846a16cc8ce0f347f432"
@@ -1208,7 +1204,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum notify 4.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "9cc7ed2bd4b7edad3ee93b659c38e53dabb619f7274e127a0fab054ad2bb998d"
 "checksum num-integer 0.1.39 (registry+https://github.com/rust-lang/crates.io-index)" = "e83d528d2677f0518c570baf2b7abdcf0cd2d248860b68507bdcb3e91d4c0cea"
 "checksum num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0b3a5d7cc97d6d30d8b9bc8fa19bf45349ffe46241e8816f50f62f6d6aaabee1"
-"checksum num_cpus 1.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5a69d464bdc213aaaff628444e99578ede64e9c854025aa43b9796530afa9238"
+"checksum num_cpus 1.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1a23f0ed30a54abaa0c7e83b1d2d87ada7c3c23078d1d87815af3e3b6385fbba"
 "checksum ordered-float 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2f0015e9e8e28ee20c581cfbfe47c650cedeb9ed0721090e0b7ebb10b9cdbcc2"
 "checksum pear 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c26d2b92e47063ffce70d3e3b1bd097af121a9e0db07ca38a6cc1cf0cc85ff25"
 "checksum pear_codegen 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "336db4a192cc7f54efeb0c4e11a9245394824cc3bcbd37ba3ff51240c35d7a6e"
@@ -1236,7 +1232,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum rocket_codegen 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7d907d6d458c859651c1cf4c8fa99b77685082bde0561db6a4600b365058f710"
 "checksum rocket_contrib 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f73e161dad5730435f51c815a5c6831d2e57b6b4299b1bf609d31b09aa9a2fa7"
 "checksum rocket_http 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ba9d4f2ce5bba6e1b6d3100493bbad63879e99bbf6b4365d61e6f781daab324d"
-"checksum rppal 0.10.0 (git+https://github.com/golemparts/rppal?rev=79ce7af158f5940ab6c2ac9c607b2d7e5c2e5540)" = "<none>"
+"checksum rppal 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d6989c9367909b1c8c94635ec3ef5036e938844e253327db0a861b8c7fee96ec"
 "checksum rustc-demangle 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "adacaae16d02b6ec37fdc7acfcddf365978de76d1983d3ee22afc260e1ca9619"
 "checksum rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 "checksum ryu 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "eb9e9b8cde282a9fe6a42dd4681319bfb63f121b8a8ee9439c6f4107e58a46f7"
