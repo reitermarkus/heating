@@ -193,7 +193,7 @@ fn main() {
 
         if i == 0 {
           if let Some(median) = heap.median() {
-            let (height, volume, percentage) = tank_level(median);
+            let (_, volume, percentage) = tank_level(median);
 
             println!("Updating LCD …");
             update_lcd(&mut lcd, volume, percentage).unwrap();
