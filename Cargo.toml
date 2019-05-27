@@ -7,15 +7,15 @@ edition = "2018"
 [dependencies]
 fc113 = { path = "fc113" }
 hc-sr04 = { path = "hc-sr04" }
-lru_time_cache = "0.8"
+lru_time_cache = "0.9"
 lazy_static = "*"
 measurements = "0.10"
 medianheap = "0.2"
-ordered-float = "1.0"
-rppal = "0.10"
+ordered-float = "1"
+rppal = "0.11"
 simple-signal = "1"
 vessel = { path = "vessel" }
 serde_json = "1"
 rocket = "0.4"
 rocket_contrib = "0.4"
-vcontrol = "0.2"
+vcontrol = { version = "0.3.1", git = "https://github.com/reitermarkus/vcontrol-rs", branch = "master" }

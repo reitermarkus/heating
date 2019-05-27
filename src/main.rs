@@ -107,7 +107,7 @@ struct DataValue(Value);
 impl FromDataSimple for DataValue {
   type Error = String;
 
-  fn from_data(req: &Request, data: Data) -> data::Outcome<Self, String> {
+  fn from_data(_req: &Request, data: Data) -> data::Outcome<Self, String> {
     let mut string = String::new();
 
     if let Err(e) = data.open().read_to_string(&mut string) {
@@ -144,8 +144,8 @@ fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl<V2
 fn main() {
   let commands = V200KW2::commands();
 
-  let device = Optolink::open(env::var("OPTOLINK_DEVICE").unwrap()).expect("Failed to open Optolink device");
-  let vcontrol = Mutex::new(VControl::<V200KW2>::new(device));
+  let device = Optolink::open(env::var("OPTOLINK_DEVICE").expect("OPTOLINK_DEVICE is not set")).expect("Failed to open Optolink device");
+  let vcontrol = Mutex::new(VControl::<V200KW2>::connect(device).expect("Failed to connect to device"));
 
   let vcontrol_cache = RwLock::new(LruCache::<String, Value>::with_expiry_duration(CACHE_DURATION));
 

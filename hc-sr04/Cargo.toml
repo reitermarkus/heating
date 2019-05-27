@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 ordered-float = "1.0"
-rppal = "0.10"
+rppal = "0.11"
