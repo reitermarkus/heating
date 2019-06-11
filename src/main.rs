@@ -131,6 +131,8 @@ fn vcontrol_set_json(command: String, value: Json<Value>, vcontrol: State<Mutex<
 fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl<V200KW2>>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
   let mut vcontrol = vcontrol.lock().unwrap();
 
+  eprintln!("Setting value for command '{}': {:?}", command, value);
+
   match vcontrol.set(&command, &value) {
     Err(vcontrol::Error::UnsupportedCommand(_)) => None,
     res => {
