@@ -152,14 +152,14 @@ fn main() {
   let heap = Arc::new(RwLock::new(MedianHeap::with_max_size(10000)));
   let heap_clone = heap.clone();
 
-  let gpio = Gpio::new().expect("failed to access GPIO");
+  let gpio = Gpio::new().expect("Failed to access GPIO");
   let trigger = gpio.get(TRIGGER_PIN).unwrap().into_output();
   let echo = gpio.get(ECHO_PIN).unwrap().into_input();
 
-  let mut sensor = HcSr04::new(trigger, echo).expect("failed to set up sensor");
+  let mut sensor = HcSr04::new(trigger, echo).expect("Failed to set up sensor");
 
-  let i2c = I2c::new().expect("failed to access I2C bus");
-  let mut lcd = Fc113::new(i2c, 2).unwrap();
+  let i2c = I2c::new().expect("Failed to access I2C bus");
+  let mut lcd = Fc113::new(i2c, 2).expect("Failed to initialize LCD");
 
   lcd.create_char(Droplet      as usize, Droplet).unwrap();
   lcd.create_char(OeLowercase  as usize, OeLowercase).unwrap();
@@ -167,7 +167,7 @@ fn main() {
   lcd.create_char(PercentLeft  as usize, PercentLeft).unwrap();
   lcd.create_char(PercentRight as usize, PercentRight).unwrap();
 
-  update_lcd(&mut lcd, 0.0, 0.0).unwrap();
+  update_lcd(&mut lcd, 0.0, 0.0).expect("Failed to update LCD");
 
   thread::spawn(move || {
     let (sig_tx, sig_rx) = channel();
@@ -196,7 +196,7 @@ fn main() {
             let (_, volume, percentage) = tank_level(median);
 
             println!("Updating LCD …");
-            update_lcd(&mut lcd, volume, percentage).unwrap();
+            update_lcd(&mut lcd, volume, percentage).expect("Failed to update LCD");
           }
         }
       }
