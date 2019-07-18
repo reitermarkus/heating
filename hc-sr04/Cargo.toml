@@ -5,5 +5,5 @@ authors = ["Markus Reiter <me@reitermark.us>"]
 edition = "2018"
 
 [dependencies]
-ordered-float = "1.0"
+ordered-float = "1"
 rppal = "0.11"
