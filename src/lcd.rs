@@ -1,5 +1,6 @@
 use fc113::Fc113;
 
+#[repr(usize)]
 pub enum Symbol {
   Liter,
   PercentLeft,
