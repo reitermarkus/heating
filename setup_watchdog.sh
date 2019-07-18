@@ -30,4 +30,3 @@ ping = ${gateway_ip}
 CONFIG
 
 sudo systemctl enable watchdog.service
-sudo systemctl restart watchdog.service

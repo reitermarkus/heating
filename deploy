@@ -12,8 +12,10 @@ cross build --release --target "${TARGET}"
 
 rsync -avz --include heating --exclude '*' "target/${TARGET}/release/" pi@"${ip}:/tmp/heating/"
 
-ssh pi@"${ip}" sudo timedatectl set-timezone Europe/Vienna
-echo 'heizung' | ssh pi@"${ip}" sudo tee /etc/hostname
+ssh pi@"${ip}" < setup_timezone.sh
+ssh pi@"${ip}" < setup_hostname.sh
+
+ssh pi@"${ip}" < setup_watchdog.sh
 
 cat <<CONFIG | ssh pi@"${ip}" sudo tee /lib/udev/rules.d/99-optolink.rules
 SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="A902YK66", SYMLINK+="optolink"
@@ -45,5 +47,3 @@ ssh pi@"${ip}" sudo cp -f /tmp/heating/heating /usr/local/bin/heating
 ssh pi@"${ip}" sudo mkdir -p /etc/heating
 ssh pi@"${ip}" sudo systemctl enable heating
 ssh pi@"${ip}" sudo systemctl restart heating
-
-ssh pi@"${ip}" < setup_watchdog.sh
