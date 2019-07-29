@@ -138,6 +138,11 @@ fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl<V2
     res => {
       let mut cache = cache.write().unwrap();
       cache.remove(&command);
+
+      if res.is_ok() {
+        cache.insert(command, value);
+      }
+
       Some(res)
     }
   }
