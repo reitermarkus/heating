@@ -176,7 +176,9 @@ fn main() {
 
   update_lcd(&mut lcd, 0.0, 0.0).expect("Failed to update LCD");
 
-  thread::spawn(move || {
+  let (main_tx, main_rx) = channel();
+
+  let t = thread::spawn(move || {
     let (sig_tx, sig_rx) = channel();
 
     simple_signal::set_handler(&[Signal::Int], move |_| {
@@ -188,7 +190,7 @@ fn main() {
     let mut i = 0;
 
     loop {
-      if sig_rx.try_recv().unwrap_or(false) {
+      if sig_rx.try_recv().unwrap_or_else(|_| main_rx.try_recv().unwrap_or(false)) {
         break
       }
 
@@ -212,11 +214,16 @@ fn main() {
     std::process::exit(1);
   });
 
-  rocket::ignite()
+  let launch_error = rocket::ignite()
     .manage(vcontrol)
     .manage(commands)
     .manage(vcontrol_cache)
     .manage(heap.clone())
     .mount("/", routes![oiltank, vcontrol_commands, vcontrol_get, vcontrol_set_json, vcontrol_set_text])
     .launch();
+
+  eprintln!("Rocket failed: {}", launch_error);
+  main_tx.send(true).unwrap();
+  t.join().expect("LCD update thread has panicked");
+  std::process::exit(1);
 }
