@@ -114,7 +114,10 @@ impl FromDataSimple for DataValue {
       return Failure((Status::InternalServerError, format!("{:?}", e)));
     }
 
-    Success(DataValue(string.parse::<Value>().unwrap()))
+    match string.parse::<Value>() {
+      Ok(value) => Success(DataValue(value)),
+      Err(e) => Failure((Status::BadRequest, format!("{:?}", e))),
+    }
   }
 }
 
