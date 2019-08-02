@@ -13,7 +13,7 @@ use lru_time_cache::LruCache;
 use medianheap::MedianHeap;
 use measurements::Length;
 use ordered_float::NotNan;
-use rocket_contrib::json::{Json};
+use rocket_contrib::json::Json;
 use rocket::{self, get, post, routes, State, Request, Data, Outcome::*, data::{self, FromDataSimple}, http::Status};
 use rppal::gpio::Gpio;
 use rppal::i2c::I2c;
@@ -82,23 +82,28 @@ fn vcontrol_commands(commands: State<Vec<&'static str>>) -> Option<Json<Vec<&'st
 #[get("/vcontrol/<command>")]
 fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl<V200KW2>>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<Json<Value>, vcontrol::Error>> {
   if let Some(value) = cache.read().unwrap().peek(&command) {
-    eprintln!("Using cached value for command '{}': {:?}", command, value);
+    log::info!("Using cached value for command '{}': {:?}", command, value);
     return Some(Ok(Json(value.clone())))
   }
 
   let mut vcontrol = vcontrol.lock().unwrap();
 
+  log::info!("Getting fresh value for command '{}'.", command);
+
   match vcontrol.get(&command) {
     Err(vcontrol::Error::UnsupportedCommand(_)) => None,
     Ok(value) => {
-      eprintln!("Getting fresh value for command '{}': {:?}", command, value);
+      log::info!("Got fresh value for command '{}': {:?}", command, value);
 
       let mut cache = cache.write().unwrap();
       cache.insert(command, value.clone());
 
       Some(Ok(Json(value)))
     },
-    Err(err) => Some(Err(err))
+    Err(err) => {
+      log::info!("Error for command '{}': {}", command, err);
+      Some(Err(err))
+    },
   }
 }
 
@@ -134,7 +139,7 @@ fn vcontrol_set_json(command: String, value: Json<Value>, vcontrol: State<Mutex<
 fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl<V200KW2>>>, cache: State<RwLock<LruCache<String, Value>>>) -> Option<Result<(), vcontrol::Error>> {
   let mut vcontrol = vcontrol.lock().unwrap();
 
-  eprintln!("Setting value for command '{}': {:?}", command, value);
+  log::info!("Setting value for command '{}': {:?}", command, value);
 
   match vcontrol.set(&command, &value) {
     Err(vcontrol::Error::UnsupportedCommand(_)) => None,
@@ -152,6 +157,8 @@ fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl<V2
 }
 
 fn main() {
+  env_logger::init();
+
   let commands = V200KW2::commands();
 
   let device = Optolink::open(env::var("OPTOLINK_DEVICE").expect("OPTOLINK_DEVICE is not set")).expect("Failed to open Optolink device");
@@ -207,7 +214,7 @@ fn main() {
           if let Some(median) = heap.median() {
             let (_, volume, percentage) = tank_level(median);
 
-            println!("Updating LCD …");
+            log::info!("Updating LCD …");
             update_lcd(&mut lcd, volume, percentage).expect("Failed to update LCD");
           }
         }
@@ -225,7 +232,7 @@ fn main() {
     .mount("/", routes![oiltank, vcontrol_commands, vcontrol_get, vcontrol_set_json, vcontrol_set_text])
     .launch();
 
-  eprintln!("Rocket failed: {}", launch_error);
+  log::error!("Rocket failed: {}", launch_error);
   main_tx.send(true).unwrap();
   t.join().expect("LCD update thread has panicked");
   std::process::exit(1);
