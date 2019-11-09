@@ -6,7 +6,7 @@ set -o nounset
 
 ip="${1}"
 
-TARGET='arm-unknown-linux-gnueabihf'
+TARGET='arm-unknown-linux-gnueabi'
 
 cross build --release --target "${TARGET}"
 
