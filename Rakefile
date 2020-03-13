@@ -1,7 +1,7 @@
 require 'securerandom'
 require 'shellwords'
 
-TARGET = 'arm-unknown-linux-gnueabihf'
+TARGET = ENV['TARGET'] || 'arm-unknown-linux-gnueabihf'
 
 RPI = ENV['RPI'] || 'heizung.local'
 HOST = "pi@#{RPI}"
@@ -74,7 +74,7 @@ task :setup_optolink do
   r, w = IO.pipe
 
   w.puts <<~CFG
-    SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="A902YK66", SYMLINK+="optolink"
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="A902YK66", SYMLINK+="optolink", TAG+="systemd"
   CFG
   w.close
 
@@ -85,7 +85,7 @@ task :setup => [:setup_timezone, :setup_hostname, :setup_optolink, :setup_watchd
 
 desc 'deploy binary and service configuration to Raspberry Pi'
 task :deploy => :build  do
-  sh 'rsync', '-z', '--rsync-path=sudo rsync', "target/#{TARGET}/release/heating", "#{HOST}:/usr/local/bin/heating"
+  sh 'rsync', '-z', '--rsync-path', 'sudo rsync', "target/#{TARGET}/release/heating", "#{HOST}:/usr/local/bin/heating"
 
   r, w = IO.pipe
 
@@ -101,8 +101,8 @@ task :deploy => :build  do
     [Service]
     Type=simple
     Environment=OPTOLINK_DEVICE=/dev/optolink
-    Environment=ROCKET_PORT=80
     Environment=RUST_LOG=info
+    Environment=ROCKET_PORT=80
     Environment=ROCKET_SECRET_KEY="#{SecureRandom.base64(32)}"
     ExecStart=/usr/local/bin/heating
     Restart=always
@@ -120,7 +120,7 @@ end
 
 desc 'show service log'
 task :log do
-  sh 'ssh', HOST, '-t', 'journalctl', '-f', '-u', 'heating.service'
+  sh 'ssh', HOST, '-t', 'journalctl', '-f', '-u', 'heating'
 end
 
 task :default => :build
