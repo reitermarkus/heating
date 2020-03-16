@@ -38,6 +38,8 @@ lazy_static! {
   );
 
   static ref SENSOR_OFFSET: Length = Length::from_centimeters(4.0);
+
+  static ref OPTOLINK_DEVICE: String = env::var("OPTOLINK_DEVICE").expect("OPTOLINK_DEVICE is not set");
 }
 
 fn tank_level(median: NotNan<f64>) -> (f64, f64, f64) {
@@ -90,20 +92,37 @@ fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl<V200KW2>>>, cach
 
   log::info!("Getting fresh value for command '{}'.", command);
 
-  match vcontrol.get(&command) {
-    Err(vcontrol::Error::UnsupportedCommand(_)) => None,
-    Ok(value) => {
-      log::info!("Got fresh value for command '{}': {:?}", command, value);
+  let mut tries = 3;
 
-      let mut cache = cache.write().unwrap();
-      cache.insert(command, value.clone());
+  loop {
+    match vcontrol.get(&command) {
+      Err(vcontrol::Error::UnsupportedCommand(_)) => return None,
+      Ok(value) => {
+        log::info!("Got fresh value for command '{}': {:?}", command, value);
 
-      Some(Ok(Json(value)))
-    },
-    Err(err) => {
-      log::info!("Error for command '{}': {}", command, err);
-      Some(Err(err))
-    },
+        let mut cache = cache.write().unwrap();
+        cache.insert(command, value.clone());
+
+        return Some(Ok(Json(value)))
+      },
+      Err(err) => {
+        if tries == 0 {
+          panic!("Error for command '{}': {}", command, err);
+        } else {
+          log::error!("Error for command '{}': {}", command, err);
+        }
+
+        match err {
+          vcontrol::Error::Io(ref err) if err.kind() == std::io::ErrorKind::TimedOut => {
+            log::info!("Re-opening optolink device …");
+            std::mem::replace(&mut *vcontrol, vcontrol_connect());
+          },
+          _ => (),
+        }
+      },
+    }
+
+    tries -= 1;
   }
 }
 
@@ -156,13 +175,18 @@ fn vcontrol_set(command: String, value: Value, vcontrol: State<Mutex<VControl<V2
   }
 }
 
+fn vcontrol_connect() -> VControl::<V200KW2> {
+  let mut device = Optolink::open(&*OPTOLINK_DEVICE).expect("Failed to open Optolink device");
+  device.set_timeout(Some(Duration::from_secs(10))).unwrap();
+  VControl::<V200KW2>::connect(device).expect("Failed to connect to device")
+}
+
 fn main() {
   env_logger::init();
 
   let commands = V200KW2::commands();
 
-  let device = Optolink::open(env::var("OPTOLINK_DEVICE").expect("OPTOLINK_DEVICE is not set")).expect("Failed to open Optolink device");
-  let vcontrol = Mutex::new(VControl::<V200KW2>::connect(device).expect("Failed to connect to device"));
+  let vcontrol = Mutex::new(vcontrol_connect());
 
   let vcontrol_cache = RwLock::new(LruCache::<String, Value>::with_expiry_duration(CACHE_DURATION));
 
