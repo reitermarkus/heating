@@ -115,7 +115,7 @@ fn vcontrol_get(command: String, vcontrol: State<Mutex<VControl<V200KW2>>>, cach
         match err {
           vcontrol::Error::Io(ref err) if err.kind() == std::io::ErrorKind::TimedOut => {
             log::info!("Re-opening optolink device …");
-            std::mem::replace(&mut *vcontrol, vcontrol_connect());
+            *vcontrol = vcontrol_connect();
           },
           _ => (),
         }
