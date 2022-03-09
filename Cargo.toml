@@ -17,7 +17,7 @@ lazy_static = "*"
 log = "0.4"
 vessel = { path = "vessel" }
 vcontrol = { version = "*", features = ["impl_webthing"] }
-webthing = "0.14"
+webthing = "0.15"
 serde_json = "1.0"
 
 [patch.crates-io]
