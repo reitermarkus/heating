@@ -13,6 +13,23 @@
       vars:
         timezone: Europe/Vienna
         watchdog: on
+    - name: Install ser2net
+      apt:
+        name: ser2net
+    - name: Configure ser2net
+      copy:
+        content: |
+          %YAML 1.1
+          ---
+          connection: &con01
+            accepter: tcp,4444
+            enable: on
+            options:
+              kickolduser: true
+              telnet-brk-on-sync: true
+            connector: serialdev,/dev/optolink,4800e82,local
+        dest: /etc/ser2net.yaml
+      register: ser2net_config
     - name: Set up optolink device
       copy:
         content: |
