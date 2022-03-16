@@ -9,7 +9,7 @@ opt-level = 3
 lto = true
 
 [dependencies]
-actix-rt = "1.1"
+actix-rt = "2.7"
 env_logger = "0.7"
 fc113 = { path = "fc113" }
 hc-sr04 = { path = "hc-sr04" }
@@ -17,7 +17,7 @@ lazy_static = "*"
 log = "0.4"
 vessel = { path = "vessel" }
 vcontrol = { version = "*", features = ["impl_webthing"] }
-webthing = "0.14"
+webthing = "0.15"
 serde_json = "1.0"
 
 [patch.crates-io]
