@@ -12,7 +12,7 @@ use webthing::{
 };
 
 lazy_static! {
-  static ref OPTOLINK_DEVICE: String = env::var("OPTOLINK_DEVICE").unwrap_or("/dev/optolink".into());
+  static ref OPTOLINK_DEVICE: String = env::var("OPTOLINK_DEVICE").unwrap_or_else(|_| "/dev/optolink".into());
 }
 
 fn vcontrol_connect() -> VControl {
