@@ -16,6 +16,11 @@
     - name: Install ser2net
       apt:
         name: ser2net
+    - name: Disable ser2net
+      systemd:
+        name: ser2net
+        enabled: no
+        state: stopped
     - name: Configure ser2net
       copy:
         content: |
