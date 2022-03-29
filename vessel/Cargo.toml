@@ -5,4 +5,4 @@ authors = ["Markus Reiter <me@reitermark.us>"]
 edition = "2018"
 
 [dependencies]
-measurements = "0.10"
+measurements = "0.11"
