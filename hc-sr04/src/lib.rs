@@ -61,6 +61,6 @@ impl HcSr04 {
     let echo_length = duration.as_secs() as f64 + f64::from(duration.subsec_nanos()) * 1e-9;
     let distance = echo_length / 2.0 * SPEED_OF_SOUND;
 
-    Ok(NotNan::from(distance))
+    Ok(NotNan::try_from(distance).unwrap())
   }
 }
