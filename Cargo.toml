@@ -10,7 +10,7 @@ opt-level = 3
 lto = true
 
 [dependencies]
-actix-rt = "2.7"
+actix-rt = "2.9"
 env_logger = "0.9"
 fc113 = { path = "fc113" }
 hc-sr04 = { path = "hc-sr04" }
