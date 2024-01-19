@@ -11,7 +11,7 @@ lto = true
 
 [dependencies]
 actix-rt = "2.7"
-env_logger = "0.9"
+env_logger = "0.11"
 fc113 = { path = "fc113" }
 hc-sr04 = { path = "hc-sr04" }
 lazy_static = "*"
