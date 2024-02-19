@@ -23,6 +23,5 @@ serde_json = "1"
 tokio = "1"
 
 [patch.crates-io]
-phf = { git = "https://github.com/rust-phf/rust-phf" }
 vcontrol = { git = "https://github.com/reitermarkus/vcontrol-rs" }
 # vcontrol = { path = "../../../Repos/vcontrol-rs" }

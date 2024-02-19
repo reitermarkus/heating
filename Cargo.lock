@@ -2467,8 +2467,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "phf"
-version = "0.11.2"
-source = "git+https://github.com/rust-phf/rust-phf#999e6a260f03d82aa9d159465113294e7ed019e7"
