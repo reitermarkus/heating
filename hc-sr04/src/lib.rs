@@ -1,8 +1,10 @@
-use std::time::{Instant, Duration};
-use std::thread;
+use std::{
+  thread,
+  time::{Duration, Instant},
+};
 
 use ordered_float::NotNan;
-use rppal::gpio::{self, OutputPin, InputPin, Level::*, Trigger};
+use rppal::gpio::{self, InputPin, Level::*, OutputPin, Trigger};
 
 const TEMPERATURE: f64 = 15.5; // °C
 const SPEED_OF_SOUND: f64 = 331.5 + 0.6 * TEMPERATURE; // m/s

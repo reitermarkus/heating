@@ -1,8 +1,6 @@
-use measurements::Length;
-use measurements::Volume;
+use measurements::{Length, Volume};
 
-use crate::level::Level;
-use crate::tank::Tank;
+use crate::{level::Level, tank::Tank};
 
 #[derive(Debug)]
 pub struct CuboidTank {
@@ -36,7 +34,9 @@ impl Tank for CuboidTank {
 
   fn level(&self, filling_height: Length) -> Level {
     Level {
-      volume: Volume::from_liters(self.length.as_decimeters() * self.width.as_decimeters() * filling_height.as_decimeters()),
+      volume: Volume::from_liters(
+        self.length.as_decimeters() * self.width.as_decimeters() * filling_height.as_decimeters(),
+      ),
       percentage: filling_height / self.height,
     }
   }

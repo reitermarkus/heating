@@ -1,5 +1,4 @@
-use std::thread::sleep;
-use std::time::Duration;
+use std::{thread::sleep, time::Duration};
 
 use rppal::i2c::I2c;
 
@@ -20,14 +19,14 @@ pub enum Command {
 #[repr(u8)]
 pub enum DisplayCursorShift {
   DisplayMove = 0x08,
-  CursorMove = 0x00,
+  CursorMove  = 0x00,
 }
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum DisplayMove {
   Right = 0x04,
-  Left = 0x00,
+  Left  = 0x00,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -68,12 +67,7 @@ impl Fc113 {
   pub fn new(bus: I2c, rows: usize) -> Result<Fc113, rppal::i2c::Error> {
     assert!(rows <= 2);
 
-    let mut lcd = Fc113 {
-      bus,
-      rows,
-      backlight: true,
-      big_font: false,
-    };
+    let mut lcd = Fc113 { bus, rows, backlight: true, big_font: false };
 
     lcd.init()?;
 
@@ -99,13 +93,16 @@ impl Fc113 {
 
     self.write_4_bits(0x02 << 4)?;
 
-    self.command(Command::FunctionSet as u8 | if self.rows == 2 {
-      Self::ROWS_2 as u8
-    } else if self.big_font {
-      Self::FONT_SIZE_5X10 as u8
-    } else {
-      0
-    })?;
+    self.command(
+      Command::FunctionSet as u8
+        | if self.rows == 2 {
+          Self::ROWS_2 as u8
+        } else if self.big_font {
+          Self::FONT_SIZE_5X10 as u8
+        } else {
+          0
+        },
+    )?;
 
     self.command(Command::DisplayControl as u8 | Self::DISPLAY_ON)?;
 
@@ -140,7 +137,7 @@ impl Fc113 {
 
   pub fn set_cursor(&mut self, col: usize, row: usize) -> Result<usize, rppal::i2c::Error> {
     let row_offsets = [0x00, 0x40, 0x14, 0x54];
-  	self.command(Command::SetDgramAddr as u8 | (col + row_offsets[row]) as u8)
+    self.command(Command::SetDgramAddr as u8 | (col + row_offsets[row]) as u8)
   }
 
   pub fn create_char(&mut self, location: usize, charmap: impl Into<[u8; 8]>) -> Result<usize, rppal::i2c::Error> {
@@ -159,7 +156,7 @@ impl Fc113 {
 
   fn send(&mut self, bits: u8, mode: Mode) -> Result<usize, rppal::i2c::Error> {
     let bits_high = mode as u8 | (bits & 0xF0);
-    let bits_low  = mode as u8 | ((bits << 4) & 0xF0);
+    let bits_low = mode as u8 | ((bits << 4) & 0xF0);
 
     self.write_4_bits(bits_high)?;
     self.write_4_bits(bits_low)

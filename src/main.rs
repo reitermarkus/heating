@@ -1,15 +1,11 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-use std::env;
-use std::sync::Arc;
+use std::{env, sync::Arc};
 
 use lazy_static::lazy_static;
 use tokio::signal;
 use vcontrol::{self, Optolink, VControl};
-use webthing::{
-  ThingsType, WebThingServer,
-  BaseActionGenerator,
-};
+use webthing::{BaseActionGenerator, ThingsType, WebThingServer};
 
 lazy_static! {
   static ref OPTOLINK_DEVICE: String = env::var("OPTOLINK_DEVICE").unwrap_or_else(|_| "/dev/optolink".into());
@@ -44,9 +40,7 @@ async fn main() {
   let server_thread = server.start(None);
   let update_thread = vcontrol::thing::update_thread(vcontrol, weak_thing, commands);
 
-  let signal = async {
-    signal::ctrl_c().await.unwrap()
-  };
+  let signal = async { signal::ctrl_c().await.unwrap() };
   let server = async move {
     let (server, _) = tokio::join!(server_thread, update_thread);
     server.expect("server failed");
