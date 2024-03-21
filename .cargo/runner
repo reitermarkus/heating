@@ -8,6 +8,8 @@ ssh_host="${user}@${host}"
 binary_name="$(basename "${1}")"
 remote_path="/tmp/${binary_name}"
 
+ssh "${ssh_host}" "sudo systemctl stop '${binary_name}'" || true
+ssh "${ssh_host}" "sudo kill \$(sudo pgrep '${binary_name}')" || true
+ssh "${ssh_host}" "rm '${remote_path}'" || true
 scp "${1}" "${ssh_host}:${remote_path}"
-ssh "${ssh_host}" "sudo systemctl stop '${binary_name}' || true"
 ssh -t "${ssh_host}" "sudo RUST_LOG='${RUST_LOG-}' '${remote_path}'"
