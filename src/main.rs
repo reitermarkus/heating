@@ -1,5 +1,3 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 use std::{env, sync::Arc};
 
 use lazy_static::lazy_static;

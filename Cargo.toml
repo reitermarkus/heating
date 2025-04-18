@@ -17,7 +17,7 @@ hc-sr04 = { path = "hc-sr04" }
 lazy_static = "*"
 log = "0.4"
 vessel = { path = "vessel" }
-vcontrol = { version = "*", features = ["impl_webthing"] }
+vcontrol = { version = "*", features = ["webthing"] }
 webthing = "0.15"
 serde_json = "1"
 tokio = "1"
@@ -25,3 +25,4 @@ tokio = "1"
 [patch.crates-io]
 vcontrol = { git = "https://github.com/reitermarkus/vcontrol-rs" }
 # vcontrol = { path = "../../../Repos/vcontrol-rs" }
+webthing = { git = "https://github.com/WebThingsIO/webthing-rust" }
