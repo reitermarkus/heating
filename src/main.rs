@@ -9,16 +9,12 @@ lazy_static! {
   static ref OPTOLINK_DEVICE: String = env::var("OPTOLINK_DEVICE").unwrap_or_else(|_| "/dev/optolink".into());
 }
 
-async fn vcontrol_connect() -> VControl {
-  let device = Optolink::open(&*OPTOLINK_DEVICE).await.expect("Failed to open Optolink device");
-  VControl::connect(device).await.expect("Failed to connect to device")
-}
-
 #[actix_rt::main]
 async fn main() {
   env_logger::init();
 
-  let vcontrol = vcontrol_connect().await;
+  let device = Optolink::open(&*OPTOLINK_DEVICE).await.expect("Failed to open Optolink device");
+  let vcontrol = VControl::connect(device).await.expect("Failed to connect to device");
 
   let port = env::var("PORT").map(|s| s.parse::<u16>().expect("PORT is invalid")).unwrap_or(8888);
 
