@@ -2,7 +2,7 @@
 name = "heating"
 version = "0.1.0"
 authors = ["Markus Reiter <me@reitermark.us>"]
-edition = "2021"
+edition = "2024"
 publish = false
 
 [profile.release]
