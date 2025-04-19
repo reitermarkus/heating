@@ -12,7 +12,6 @@ lto = true
 [dependencies]
 actix-rt = "2"
 env_logger = "0.11"
-lazy_static = "*"
 log = "0.4"
 vcontrol = { version = "*", features = ["webthing"] }
 webthing = "0.15"

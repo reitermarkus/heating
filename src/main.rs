@@ -1,19 +1,15 @@
 use std::{env, sync::Arc};
 
-use lazy_static::lazy_static;
 use tokio::signal;
 use vcontrol::{self, Optolink, VControl};
 use webthing::{BaseActionGenerator, ThingsType, WebThingServer};
-
-lazy_static! {
-  static ref OPTOLINK_DEVICE: String = env::var("OPTOLINK_DEVICE").unwrap_or_else(|_| "/dev/optolink".into());
-}
 
 #[actix_rt::main]
 async fn main() {
   env_logger::init();
 
-  let device = Optolink::open(&*OPTOLINK_DEVICE).await.expect("Failed to open Optolink device");
+  let optolink_device = env::var("OPTOLINK_DEVICE").unwrap_or_else(|_| "/dev/optolink".into());
+  let device = Optolink::open(optolink_device).await.expect("Failed to open Optolink device");
   let vcontrol = VControl::connect(device).await.expect("Failed to connect to device");
 
   let port = env::var("PORT").map(|s| s.parse::<u16>().expect("PORT is invalid")).unwrap_or(8888);
