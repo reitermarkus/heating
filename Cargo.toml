@@ -12,11 +12,8 @@ lto = true
 [dependencies]
 actix-rt = "2"
 env_logger = "0.11"
-fc113 = { path = "fc113" }
-hc-sr04 = { path = "hc-sr04" }
 lazy_static = "*"
 log = "0.4"
-vessel = { path = "vessel" }
 vcontrol = { version = "*", features = ["webthing"] }
 webthing = "0.15"
 serde_json = "1"

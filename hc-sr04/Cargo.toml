@@ -1,9 +1,0 @@
-[package]
-name = "hc-sr04"
-version = "0.1.0"
-authors = ["Markus Reiter <me@reitermark.us>"]
-edition = "2021"
-
-[dependencies]
-ordered-float = "4"
-rppal = "0.17"
