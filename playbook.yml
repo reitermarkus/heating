@@ -1,10 +1,10 @@
 - name: Set up Raspberry Pi
   hosts: raspberry_pi
-  become: yes
+  become: true
   tasks:
     - name: Install requirements
       local_action: command ansible-galaxy install -r requirements.yml
-      become: no
+      become: false
       tags:
         - setup
     - name: Setup
@@ -46,7 +46,7 @@
       shell: udevadm control --reload-rules && udevadm trigger
     - name: Build program
       local_action: command cargo install --bin heating --path . --root target
-      become: no
+      become: false
     - name: Install program
       copy:
         src: target/bin/heating
