@@ -30,11 +30,12 @@ async fn main() {
   let server_thread = server.start(None);
   let update_thread = vcontrol::thing::update_thread(vcontrol, weak_thing, commands);
 
-  let signal = async { signal::ctrl_c().await.unwrap() };
   let server = async move {
     let (server, _) = tokio::join!(server_thread, update_thread);
     server.expect("server failed");
   };
+
+  let signal = async { signal::ctrl_c().await.unwrap() };
 
   tokio::select! {
     _ = signal => (),
