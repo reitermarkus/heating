@@ -29,7 +29,10 @@ async fn main() {
 
   let server_thread = server.start(None);
   let server_handle = server_thread.handle();
-  let update_thread = vcontrol::thing::update_thread(vcontrol, weak_thing, commands);
+  let update_thread = async {
+    vcontrol::thing::update_thread(vcontrol, weak_thing, commands).await;
+    log::info!("Update thread stopped.");
+  };
 
   let server = async move {
     let (server, _) = tokio::join!(server_thread, update_thread);
