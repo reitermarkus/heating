@@ -1,7 +1,7 @@
 all:
   hosts:
     heating:
-      ansible_user: pi
+      ansible_user: root
       ansible_host: heating
   children:
     raspberry_pi:

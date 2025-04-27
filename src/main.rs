@@ -1,6 +1,6 @@
 use std::{env, sync::Arc};
 
-use tokio::signal;
+use tokio::signal::unix::{SignalKind, signal};
 use vcontrol::{self, Optolink, VControl};
 use webthing::{BaseActionGenerator, ThingsType, WebThingServer};
 
@@ -28,6 +28,7 @@ async fn main() {
   );
 
   let server_thread = server.start(None);
+  let server_handle = server_thread.handle();
   let update_thread = vcontrol::thing::update_thread(vcontrol, weak_thing, commands);
 
   let server = async move {
@@ -35,10 +36,24 @@ async fn main() {
     server.expect("server failed");
   };
 
-  let signal = async { signal::ctrl_c().await.unwrap() };
+  let sigint = async {
+    signal(SignalKind::interrupt()).unwrap().recv().await.unwrap();
+    log::info!("Received SIGINT, stopping server.");
+    server_handle.stop(true).await;
+    log::info!("Server stopped.");
+  };
+  let sigterm = async {
+    signal(SignalKind::terminate()).unwrap().recv().await.unwrap();
+    log::info!("Received SIGTERM, stopping server.");
+    server_handle.stop(true).await;
+    log::info!("Server stopped.");
+  };
 
   tokio::select! {
-    _ = signal => (),
-    _ = server => (),
+    _ = sigint => (),
+    _ = sigterm => (),
+    _ = server => {
+      log::error!("Server crashed.");
+    },
   }
 }
