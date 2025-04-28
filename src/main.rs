@@ -1,6 +1,9 @@
-use std::{env, sync::Arc};
+use std::{env, process, sync::Arc};
 
-use tokio::signal::unix::{SignalKind, signal};
+use tokio::{
+  signal::unix::{SignalKind, signal},
+  sync::oneshot,
+};
 use vcontrol::{self, Optolink, VControl};
 use webthing::{BaseActionGenerator, ThingsType, WebThingServer};
 
@@ -27,36 +30,55 @@ async fn main() {
     Some(true),
   );
 
+  let (server_stopped_tx, server_stopped_rx) = oneshot::channel();
+
   let server_thread = server.start(None);
   let server_handle = server_thread.handle();
-  let update_thread = async {
+  let server_thread = tokio::spawn(async {
+    let res = server_thread.await;
+    // Server may have been stopped via a signal, in which case the channel is already closed.
+    let _ = server_stopped_tx.send(());
+    res
+  });
+  let update_thread = tokio::spawn(async {
     vcontrol::thing::update_thread(vcontrol, weak_thing, commands).await;
     log::info!("Update thread stopped.");
-  };
-
-  let server = async move {
-    let (server, _) = tokio::join!(server_thread, update_thread);
-    server.expect("server failed");
-  };
+  });
 
   let sigint = async {
     signal(SignalKind::interrupt()).unwrap().recv().await.unwrap();
     log::info!("Received SIGINT, stopping server.");
-    server_handle.stop(true).await;
-    log::info!("Server stopped.");
+    // Main thread waits for the server to stop.
+    let _ = server_handle.stop(true);
   };
   let sigterm = async {
     signal(SignalKind::terminate()).unwrap().recv().await.unwrap();
     log::info!("Received SIGTERM, stopping server.");
-    server_handle.stop(true).await;
-    log::info!("Server stopped.");
+    // Main thread waits for the server to stop.
+    let _ = server_handle.stop(true);
   };
 
   tokio::select! {
     _ = sigint => (),
     _ = sigterm => (),
-    _ = server => {
-      log::error!("Server crashed.");
-    },
+    _ = server_stopped_rx => (),
   }
+
+  let res = server_thread.await.unwrap();
+  let exit_code = match res {
+    Ok(()) => {
+      log::info!("Server stopped.");
+      0
+    },
+    Err(err) => {
+      log::error!("Server crashed: {}", err);
+      1
+    },
+  };
+
+  drop(server);
+
+  update_thread.await.unwrap();
+
+  process::exit(exit_code);
 }
