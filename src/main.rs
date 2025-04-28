@@ -33,6 +33,8 @@ async fn main() {
   let (server_stopped_tx, server_stopped_rx) = oneshot::channel();
 
   let server_thread = server.start(None);
+  drop(server);
+
   let server_handle = server_thread.handle();
   let server_thread = tokio::spawn(async {
     let res = server_thread.await;
@@ -49,13 +51,13 @@ async fn main() {
     signal(SignalKind::interrupt()).unwrap().recv().await.unwrap();
     log::info!("Received SIGINT, stopping server.");
     // Main thread waits for the server to stop.
-    let _ = server_handle.stop(true);
+    server_handle.stop(true).await;
   };
   let sigterm = async {
     signal(SignalKind::terminate()).unwrap().recv().await.unwrap();
     log::info!("Received SIGTERM, stopping server.");
     // Main thread waits for the server to stop.
-    let _ = server_handle.stop(true);
+    server_handle.stop(true).await;
   };
 
   tokio::select! {
@@ -64,21 +66,15 @@ async fn main() {
     _ = server_stopped_rx => (),
   }
 
-  let res = server_thread.await.unwrap();
-  let exit_code = match res {
+  update_thread.await.unwrap();
+
+  match server_thread.await.unwrap() {
     Ok(()) => {
       log::info!("Server stopped.");
-      0
     },
     Err(err) => {
       log::error!("Server crashed: {}", err);
-      1
+      process::exit(1);
     },
-  };
-
-  drop(server);
-
-  update_thread.await.unwrap();
-
-  process::exit(exit_code);
+  }
 }
