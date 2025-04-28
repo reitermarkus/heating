@@ -73,7 +73,7 @@ async fn main() {
       log::info!("Server stopped.");
     },
     Err(err) => {
-      log::error!("Server crashed: {}", err);
+      log::error!("Server crashed: {err}");
       process::exit(1);
     },
   }
