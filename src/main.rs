@@ -1,11 +1,10 @@
-use std::{env, process, sync::Arc};
+use std::{env, process};
 
-use tokio::{
-  signal::unix::{SignalKind, signal},
-  sync::oneshot,
-};
+use tokio::signal::unix::{SignalKind, signal};
 use vcontrol::{self, Optolink, VControl};
-use webthing::{BaseActionGenerator, ThingsType, WebThingServer};
+
+mod esphome_server;
+mod webthing_server;
 
 #[actix_rt::main]
 async fn main() {
@@ -17,63 +16,44 @@ async fn main() {
 
   let port = env::var("PORT").map(|s| s.parse::<u16>().expect("PORT is invalid")).unwrap_or(8888);
 
-  let (vcontrol, thing, commands) = vcontrol::thing::make_thing(vcontrol);
-  let weak_thing = Arc::downgrade(&thing);
+  let sigint = async { signal(SignalKind::interrupt()).unwrap().recv().await };
+  let sigterm = async { signal(SignalKind::terminate()).unwrap().recv().await };
 
-  let mut server = WebThingServer::new(
-    ThingsType::Single(thing),
-    Some(port),
-    None,
-    None,
-    Box::new(BaseActionGenerator),
-    None,
-    Some(true),
-  );
-
-  let (server_stopped_tx, server_stopped_rx) = oneshot::channel();
-
-  let server_thread = server.start(None);
-  drop(server);
-
-  let server_handle = server_thread.handle();
-  let server_thread = tokio::spawn(async {
-    let res = server_thread.await;
-    // Server may have been stopped via a signal, in which case the channel is already closed.
-    let _ = server_stopped_tx.send(());
-    res
-  });
-  let update_thread = tokio::spawn(async {
-    vcontrol::thing::update_thread(vcontrol, weak_thing, commands).await;
-    log::info!("Update thread stopped.");
-  });
-
-  let sigint = async {
-    signal(SignalKind::interrupt()).unwrap().recv().await.unwrap();
-    log::info!("Received SIGINT, stopping server.");
-    // Main thread waits for the server to stop.
-    server_handle.stop(true).await;
-  };
-  let sigterm = async {
-    signal(SignalKind::terminate()).unwrap().recv().await.unwrap();
-    log::info!("Received SIGTERM, stopping server.");
-    // Main thread waits for the server to stop.
-    server_handle.stop(true).await;
-  };
+  let (webthing_server, webthing_server_handle, webthing_server_stopped, thing, commands) =
+    webthing_server::start(port, vcontrol).await;
+  let (esphome_server, esphome_server_stop, esphome_server_stopped) =
+    esphome_server::start(6053, thing, commands).await;
 
   tokio::select! {
-    _ = sigint => (),
-    _ = sigterm => (),
-    _ = server_stopped_rx => (),
+    _ = sigint => {
+      log::info!("Received SIGINT, stopping server.");
+    },
+    _ = sigterm => {
+      log::info!("Received SIGTERM, stopping server.");
+    },
+    _ = webthing_server_stopped => (),
+    _ = esphome_server_stopped => (),
   }
 
-  update_thread.await.unwrap();
+  webthing_server_handle.stop(true).await;
+  esphome_server_stop.send(()).unwrap();
 
-  match server_thread.await.unwrap() {
+  match esphome_server.await {
     Ok(()) => {
-      log::info!("Server stopped.");
+      log::info!("ESPHome server stopped.");
     },
     Err(err) => {
-      log::error!("Server crashed: {err}");
+      log::error!("ESPHome server crashed: {err}");
+      process::exit(1);
+    },
+  }
+
+  match webthing_server.await {
+    Ok(()) => {
+      log::info!("WebThing server stopped.");
+    },
+    Err(err) => {
+      log::error!("WebThing server crashed: {err}");
       process::exit(1);
     },
   }

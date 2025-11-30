@@ -2,14 +2,14 @@
 
 set -euo pipefail
 
-user="$(yq e '.all.hosts[].ansible_user' inventory.yml)"
-host="$(yq e '.all.hosts[].ansible_host' inventory.yml)"
+user="${SSH_USER-root}"
+host="${SSH_HOST-heating}"
 ssh_host="${user}@${host}"
 binary_name="$(basename "${1}")"
 remote_path="/tmp/${binary_name}"
 
 ssh "${ssh_host}" "rc-service '${binary_name}' stop" || true
-ssh "${ssh_host}" "kill \$(sudo pgrep '${binary_name}')" || true
+ssh "${ssh_host}" "kill \$(pgrep '${binary_name}')" || true
 ssh "${ssh_host}" "rm -f '${remote_path}'"
 scp "${1}" "${ssh_host}:${remote_path}"
 ssh -t "${ssh_host}" "RUST_LOG='${RUST_LOG-}' '${remote_path}'"
