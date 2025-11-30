@@ -1,9 +1,0 @@
-all:
-  hosts:
-    heating:
-      ansible_user: root
-      ansible_host: heating
-  children:
-    raspberry_pi:
-      hosts:
-        heating:
