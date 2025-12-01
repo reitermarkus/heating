@@ -13,13 +13,17 @@ lto = true
 actix-rt = "2"
 env_logger = "0.11"
 log = "0.4"
-vcontrol = { version = "0.4.0", features = ["webthing"] }
+vcontrol = { version = "0.4.0", features = ["schemars"] }
 webthing = "0.15"
 serde_json = "1"
 tokio = "1"
 esphome-native-api = "1.1.6"
 actix-server = "2.6.0"
 mac_address = "1.1.8"
+phf = "0.11"
+schemars = "0.8.22"
+itertools = "0.14.0"
+rangemap = "1.7.0"
 
 [patch.crates-io]
 # vcontrol = { git = "https://github.com/reitermarkus/vcontrol-rs" }
