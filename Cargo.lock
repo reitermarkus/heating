@@ -1017,8 +1017,12 @@ dependencies = [
  "actix-server",
  "env_logger",
  "esphome-native-api",
+ "itertools",
  "log",
  "mac_address",
+ "phf 0.11.3",
+ "rangemap",
+ "schemars",
  "serde_json",
  "tokio",
  "vcontrol",
@@ -1996,6 +2000,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rangemap"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acbbbbea733ec66275512d0b9694f34102e7d5406fdbe2ad8d21b28dce92887c"
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2645,11 +2655,9 @@ dependencies = [
 name = "vcontrol"
 version = "0.4.0"
 dependencies = [
- "actix-rt",
  "anyhow",
  "arrayref",
  "chrono",
- "libc",
  "log",
  "num_enum",
  "phf 0.11.3",
@@ -2662,7 +2670,6 @@ dependencies = [
  "serialport",
  "tokio",
  "tokio-serial",
- "webthing",
 ]
 
 [[package]]

@@ -5,12 +5,11 @@ use std::{
 };
 
 use actix_server::ServerHandle;
-use tokio::sync::{
-  RwLock,
-  oneshot::{self, Receiver},
-};
+use tokio::sync::oneshot::{self, Receiver};
 use vcontrol::{Command, VControl};
 use webthing::{BaseActionGenerator, Thing, ThingsType, WebThingServer};
+
+mod thing;
 
 pub async fn start(
   port: u16,
@@ -22,7 +21,7 @@ pub async fn start(
   Weak<std::sync::RwLock<Box<dyn Thing + 'static>>>,
   HashMap<&'static str, &'static Command>,
 ) {
-  let (vcontrol, thing, commands) = vcontrol::thing::make_thing(vcontrol);
+  let (vcontrol, thing, commands) = thing::make_thing(vcontrol);
   let weak_thing = Arc::downgrade(&thing);
 
   let mut server = WebThingServer::new(
@@ -48,7 +47,7 @@ pub async fn start(
     log::debug!("Server thread stopped.");
     res
   });
-  let update_thread = vcontrol::thing::update_thread(vcontrol, Weak::clone(&weak_thing), commands.clone());
+  let update_thread = thing::update_thread(vcontrol, Weak::clone(&weak_thing), commands.clone());
   let update_thread = tokio::spawn(async move {
     let res = update_thread.await;
     log::debug!("Update thread stopped.");

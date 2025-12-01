@@ -4,19 +4,10 @@ use std::{future, net::SocketAddr, sync::Weak, time::Duration};
 
 use esphome_native_api::esphomeapi::EspHomeApi;
 use esphome_native_api::parser::ProtoMessage;
-use esphome_native_api::proto::version_2025_6_3::{
-  BinarySensorStateResponse, ListEntitiesButtonResponse, NumberStateResponse, SwitchStateResponse,
-};
-use esphome_native_api::{
-  esphomeserver::EspHomeServer,
-  proto::version_2025_6_3::{
-    ListEntitiesBinarySensorResponse, ListEntitiesDoneResponse, ListEntitiesSensorResponse, ListEntitiesSwitchResponse,
-    SensorStateResponse,
-  },
-};
+use esphome_native_api::proto::version_2025_6_3::{BinarySensorStateResponse, NumberStateResponse};
+use esphome_native_api::proto::version_2025_6_3::{ListEntitiesDoneResponse, SensorStateResponse};
 use log::{debug, info, warn};
 use mac_address::get_mac_address;
-use tokio::sync::oneshot::error::TryRecvError;
 use tokio::sync::oneshot::{self, Receiver, Sender};
 use tokio::{net::TcpSocket, time::sleep};
 use vcontrol::Command;
