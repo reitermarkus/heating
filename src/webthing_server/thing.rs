@@ -10,7 +10,7 @@ use rangemap::RangeMap;
 use schemars::{schema, schema_for};
 use serde_json::json;
 use tokio::sync::broadcast::{
-  self,
+  self, Receiver,
   error::{RecvError, SendError},
 };
 use webthing::{BaseProperty, BaseThing, Thing, property::ValueForwarder};
@@ -19,6 +19,8 @@ use vcontrol::{
   AccessMode, Command, DataType, Device, VControl, Value,
   types::{CircuitTimes, Date, DateTime, DeviceId, DeviceIdF0, Error},
 };
+
+use crate::command_poller::poll_thread;
 
 struct VcontrolValueForwarder {
   command_name: &'static str,
@@ -166,28 +168,14 @@ fn add_command(
   )));
 }
 
-pub fn make_thing(
-  vcontrol: VControl,
-) -> (
-  Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
-  Arc<RwLock<Box<dyn Thing + 'static>>>,
-  HashMap<&'static str, &'static Command>,
-) {
-  let device = vcontrol.device();
-  let mut commands = HashMap::<&'static str, &'static Command>::new();
-
-  for (command_name, command) in vcontrol::commands::system_commands() {
-    commands.insert(command_name, command);
-  }
-
-  for (command_name, command) in device.commands() {
-    commands.insert(command_name, command);
-  }
-
-  let vcontrol = Arc::new(tokio::sync::RwLock::new(tokio::sync::Mutex::new(vcontrol)));
-
+pub async fn make_thing(
+  vcontrol: Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
+  commands: HashMap<&'static str, &'static Command>,
+) -> Arc<RwLock<Box<dyn Thing + 'static>>> {
   // TODO: Get from `vcontrol`.
   let device_id = 1234;
+
+  let device = vcontrol.read().await.lock().await.device();
 
   let mut thing = BaseThing::new(
     format!("urn:dev:ops:heating-{}", device_id),
@@ -203,181 +191,88 @@ pub fn make_thing(
   let thing: Box<dyn Thing + 'static> = Box::new(thing);
   let thing = Arc::new(RwLock::new(thing));
 
-  (vcontrol, thing, commands)
+  thing
 }
 
 pub async fn update_thread(
-  vcontrol: Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
   weak_thing: Weak<RwLock<Box<dyn Thing + 'static>>>,
-  commands: HashMap<&'static str, &'static Command>,
+  mut rx: Receiver<(&'static str, Value)>,
 ) {
-  let mut commands = commands
-    .into_iter()
-    .filter(|(_, command)| command.access_mode().is_read())
-    .collect::<Vec<(&'static str, &'static Command)>>();
+  loop {
+    let recv_res = match rx.recv().await {
+      Ok(res) => res,
+      Err(RecvError::Closed) => break,
+      Err(RecvError::Lagged(n)) => {
+        log::warn!("Receiver lagged, {n} messages skipped.");
+        continue;
+      },
+    };
 
-  commands.sort_by_key(|(_, command)| (command.addr(), command.block_len()));
+    let thing = if let Some(thing) = weak_thing.upgrade() { thing } else { return };
 
-  let mut command_ranges = RangeMap::new();
-  let mut current_range = None;
+    let (command_name, new_value) = recv_res;
 
-  const MAX_BLOCK_LEN: u16 = 119;
+    // let new_value = {
+    //   let vcontrol = vcontrol.read().await;
+    //   let mut vcontrol = vcontrol.lock().await;
+    //   match vcontrol.get(command_name).await {
+    //     Ok(value) => Some(value),
+    //     Err(err) => {
+    //       log::error!("Failed getting value for property '{}': {}", command_name, err);
+    //       None
+    //     },
+    //   }
+    // };
 
-  for (command_name, command) in &commands {
-    let addr = command.addr();
-    let block_len = command.block_len() as u16;
+    let thing = thing.clone();
+    actix_rt::task::spawn_blocking(move || {
+      let mut t = thing.write().unwrap();
+      let prop = t.find_property(command_name).unwrap();
 
-    let (range, commands) =
-      current_range.get_or_insert_with(|| (addr..(addr + block_len), vec![(*command_name, *command)]));
+      let old_value = prop.get_value();
 
-    let combined_len = (addr + block_len) - range.start;
+      let new_value = if let Some(value) = Some(new_value) {
+        // OutputValue
+        let value = value; // value.value
+        let mapping: Option<&'static phf::map::Map<i32, &'static str>> = None; // value.mapping
 
-    if combined_len <= MAX_BLOCK_LEN {
-      range.end = range.end.max(addr + block_len);
-      commands.push((*command_name, *command));
-    } else {
-      let range = mem::replace(range, addr..(addr + block_len));
-      let commands = mem::replace(commands, vec![(*command_name, *command)]);
-      command_ranges.insert(range, commands);
-    }
-  }
-  if let Some((range, commands)) = current_range.take() {
-    command_ranges.insert(range, commands);
-  }
-
-  eprintln!("commands: {}, command_ranges: {}", commands.len(), command_ranges.len());
-  for command_range in command_ranges.iter().map(|(range, _)| range) {
-    eprintln!("{command_range:#04X?} {command_range:#05?}");
-  }
-
-  let range_lengths = command_ranges.iter().map(|(range, _)| range).counts_by(|range| range.end - range.start);
-  dbg!(range_lengths);
-
-  let (tx, mut rx) = broadcast::channel(96);
-
-  let poll_thread = async {
-    'outer: loop {
-      for (range, commands) in command_ranges.iter() {
-        let vcontrol = vcontrol.read().await;
-        let mut vcontrol = vcontrol.lock().await;
-
-        let protocol = vcontrol.protocol();
-        let mut buffer = vec![0; (range.end - range.start) as usize];
-        protocol.get(vcontrol.optolink(), range.start, &mut buffer).await.unwrap();
-
-        let start_addr = commands[0].1.addr();
-
-        for (command_name, command) in commands {
-          let addr = command.addr();
-          let block_len = command.block_len() as usize;
-
-          let start = (addr - start_addr) as usize;
-
-          let bytes = &buffer[start..(start + block_len)];
-
-          let value = match command.deserialize(bytes) {
-            Ok(value) => value,
-            Err(err) => {
-              log::error!("Failed to deserialize value for command {command_name}: {}", err);
-              continue;
-            },
-          };
-
-          match tx.send((command_name, value)) {
-            Ok(_receivers) => continue,
-            Err(SendError((command_name, value))) => {
-              log::error!("Failed to send value for command {command_name}: {value:?}");
-              break 'outer;
-            },
-          }
-        }
-      }
-    }
-  };
-
-  let update_thread = async {
-    loop {
-      let recv_res = match rx.recv().await {
-        Ok(res) => res,
-        Err(RecvError::Closed) => break,
-        Err(RecvError::Lagged(n)) => {
-          log::warn!("Receiver lagged, {n} messages skipped.");
-          continue;
-        },
-      };
-
-      let thing = if let Some(thing) = weak_thing.upgrade() { thing } else { return };
-
-      let (command_name, new_value) = recv_res;
-
-      // let new_value = {
-      //   let vcontrol = vcontrol.read().await;
-      //   let mut vcontrol = vcontrol.lock().await;
-      //   match vcontrol.get(command_name).await {
-      //     Ok(value) => Some(value),
-      //     Err(err) => {
-      //       log::error!("Failed getting value for property '{}': {}", command_name, err);
-      //       None
-      //     },
-      //   }
-      // };
-
-      let thing = thing.clone();
-      let command_name = command_name.to_owned();
-      actix_rt::task::spawn_blocking(move || {
-        let mut t = thing.write().unwrap();
-        let prop = t.find_property(command_name).unwrap();
-
-        let old_value = prop.get_value();
-
-        let new_value = if let Some(value) = Some(new_value) {
-          // OutputValue
-          let value = value; // value.value
-          let mapping: Option<&'static phf::map::Map<i32, &'static str>> = None; // value.mapping
-
-          let new_value = json!(value);
-
-          if old_value != new_value {
-            if let Some(mapping) = mapping {
-              let mapping_found = match value {
-                Value::Int(value) => {
-                  if let Ok(value) = i32::try_from(value) {
-                    mapping.contains_key(&value)
-                  } else {
-                    false
-                  }
-                },
-                _ => false,
-              };
-
-              if !mapping_found {
-                log::warn!("Property '{}' does not have an enum mapping for {:?}.", command_name, value);
-              }
-            }
-          }
-
-          new_value
-        } else {
-          json!(null)
-        };
-
-        if let Err(err) = prop.set_cached_value(new_value.clone()) {
-          log::error!("Failed setting cached value for property '{}': {}", command_name, err)
-        }
+        let new_value = json!(value);
 
         if old_value != new_value {
-          log::info!("Property '{}' changed from {} to {}.", command_name, old_value, new_value);
+          if let Some(mapping) = mapping {
+            let mapping_found = match value {
+              Value::Int(value) => {
+                if let Ok(value) = i32::try_from(value) {
+                  mapping.contains_key(&value)
+                } else {
+                  false
+                }
+              },
+              _ => false,
+            };
+
+            if !mapping_found {
+              log::warn!("Property '{}' does not have an enum mapping for {:?}.", command_name, value);
+            }
+          }
         }
 
-        t.property_notify(command_name.to_string(), new_value);
-      })
-      .await
-      .unwrap();
-    }
-  };
+        new_value
+      } else {
+        json!(null)
+      };
 
-  tokio::select! {
-    _ = poll_thread => (),
-    _ = update_thread => (),
+      if let Err(err) = prop.set_cached_value(new_value.clone()) {
+        log::error!("Failed setting cached value for property '{}': {}", command_name, err)
+      }
+
+      if old_value != new_value {
+        log::info!("Property '{}' changed from {} to {}.", command_name, old_value, new_value);
+      }
+
+      t.property_notify(command_name.to_string(), new_value);
+    })
+    .await
+    .unwrap();
   }
 }

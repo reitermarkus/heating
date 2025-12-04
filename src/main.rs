@@ -3,6 +3,9 @@ use std::{env, process};
 use tokio::signal::unix::{SignalKind, signal};
 use vcontrol::{self, Optolink, VControl};
 
+use crate::command_poller::poll_thread;
+
+mod command_poller;
 mod esphome_server;
 mod webthing_server;
 
@@ -25,10 +28,13 @@ async fn main() {
   let sigint = async { signal(SignalKind::interrupt()).unwrap().recv().await };
   let sigterm = async { signal(SignalKind::terminate()).unwrap().recv().await };
 
-  let (webthing_server, webthing_server_handle, webthing_server_stopped, thing, commands) =
-    webthing_server::start(port, vcontrol).await;
+  let (vcontrol, rx, poll_thread, commands) = poll_thread(vcontrol).await;
+  let (webthing_server, webthing_server_handle, webthing_server_stopped) =
+    webthing_server::start(port, vcontrol.clone(), commands.clone(), rx.resubscribe()).await;
   let (esphome_server, esphome_server_stop, esphome_server_stopped) =
-    esphome_server::start(6053, thing, commands).await;
+    esphome_server::start(6053, vcontrol.clone(), commands.clone(), rx).await;
+
+  tokio::spawn(poll_thread);
 
   tokio::select! {
     _ = sigint => {

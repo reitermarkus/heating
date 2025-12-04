@@ -5,23 +5,20 @@ use std::{
 };
 
 use actix_server::ServerHandle;
+use tokio::sync::broadcast;
 use tokio::sync::oneshot::{self, Receiver};
-use vcontrol::{Command, VControl};
+use vcontrol::{Command, VControl, Value};
 use webthing::{BaseActionGenerator, Thing, ThingsType, WebThingServer};
 
 mod thing;
 
 pub async fn start(
   port: u16,
-  vcontrol: VControl,
-) -> (
-  impl Future<Output = Result<(), io::Error>>,
-  ServerHandle,
-  Receiver<()>,
-  Weak<std::sync::RwLock<Box<dyn Thing + 'static>>>,
-  HashMap<&'static str, &'static Command>,
-) {
-  let (vcontrol, thing, commands) = thing::make_thing(vcontrol);
+  vcontrol: Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
+  commands: HashMap<&'static str, &'static Command>,
+  rx: broadcast::Receiver<(&'static str, Value)>,
+) -> (impl Future<Output = Result<(), io::Error>>, ServerHandle, Receiver<()>) {
+  let thing = thing::make_thing(vcontrol.clone(), commands.clone()).await;
   let weak_thing = Arc::downgrade(&thing);
 
   let mut server = WebThingServer::new(
@@ -47,7 +44,7 @@ pub async fn start(
     log::debug!("Server thread stopped.");
     res
   });
-  let update_thread = thing::update_thread(vcontrol, Weak::clone(&weak_thing), commands.clone());
+  let update_thread = thing::update_thread(weak_thing, rx);
   let update_thread = tokio::spawn(async move {
     let res = update_thread.await;
     log::debug!("Update thread stopped.");
@@ -61,5 +58,5 @@ pub async fn start(
     }
   };
 
-  (server_thread, server_handle, server_stopped_rx, weak_thing, commands)
+  (server_thread, server_handle, server_stopped_rx)
 }
