@@ -1,8 +1,4 @@
-use std::{
-  collections::HashMap,
-  mem,
-  sync::{Arc, RwLock, Weak},
-};
+use std::{collections::HashMap, mem, sync::Arc};
 
 use itertools::Itertools;
 use rangemap::RangeMap;

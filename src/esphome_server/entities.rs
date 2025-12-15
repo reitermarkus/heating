@@ -1,189 +1,651 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use esphome_native_api::{
   parser::ProtoMessage,
   proto::version_2025_6_3::{
-    EntityCategory, ListEntitiesBinarySensorResponse, ListEntitiesNumberResponse, ListEntitiesSensorResponse,
+    EntityCategory, ListEntitiesBinarySensorResponse, ListEntitiesDateResponse, ListEntitiesNumberResponse,
+    ListEntitiesSelectResponse, ListEntitiesSensorResponse, ListEntitiesSwitchResponse, ListEntitiesTextSensorResponse,
     NumberMode,
   },
 };
 use log::warn;
-use vcontrol::Command;
+use vcontrol::{Command, DataType};
 
-pub fn entities(commands: HashMap<&'static str, &'static Command>) -> HashMap<&'static str, ProtoMessage> {
-  let device_name = "vitoligno_300c";
+use super::entity::{Entity, EntityType};
 
-  let numbers = [
-    "Ecotronic_BedienNiveauM1",
-    "Ecotronic_BedienNiveauM2",
-    "Ecotronic_BedienNeigung_HK1",
-    "Ecotronic_BedienNeigung_HK2",
-    "Ecotronic_Brennstofflager_Füllstand",
-    "Ecotronic_Brennstofflager_Maximalbegrenzung",
-    "Ecotronic_Brennstofflager_Minimalbegrenzung",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_1",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_2",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_3",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_4",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_5",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_6",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_7",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_8",
-    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_Soll",
+const ENTITIES: &[(&'static str, Entity)] = &[
+  // Buffer
+  (
     "Ecotronic_Puffer_Betriebsart",
-    "Ecotronic_Puffer_Niveau",
-    "Ecotronic_Puffer_Neigung",
-    "Ecotronic_Kesselsolltemperatur",
-    "Ecotronic_Kessel_Rücklauf_Soll",
-    "Ecotronic_Heizung_Wunschtemperatur_HK1",
-    "Ecotronic_Heizung_Wunschtemperatur_HK2",
-    "Ecotronic_Betriebsart_HK1",
-    "Ecotronic_Betriebsart_HK2",
-    "Ecotronic_Bedien_WW_Solltemperatur",
-    "Ecotronic_BedienSparbetrieb_HK1",
-    "Ecotronic_BedienSparbetrieb_HK2",
-    "Ecotronic_BedienPartybetriebM1",
-    "Ecotronic_BedienPartybetriebM2",
-  ];
-  let sensors = [
-    "Ecotronic_Puffertemperatur_1",
-    "Ecotronic_Puffertemperatur_2",
-    "Ecotronic_Puffertemperatur_3",
-    "Ecotronic_Puffertemperatur_Ist",
+    Entity {
+      entity_name: "Buffer Operating Mode",
+      entity_type: EntityType::Select { category: EntityCategory::Config },
+    },
+  ),
+  (
+    "Ecotronic_Pufferladezustand",
+    Entity {
+      entity_name: "Buffer Load State",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
     "Ecotronic_Puffertemperatur_Mittelwert",
-    "Ecotronic_Puffertemperatur_Soll",
-    "Ecotronic_Puffersoll_Maximal",
+    Entity {
+      entity_name: "Buffer Mean Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
     "Ecotronic_Puffersoll_Minimal",
+    Entity { entity_name: "Buffer Minimum Temperature", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Puffersoll_Maximal",
+    Entity { entity_name: "Buffer Maximum Temperature", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Puffertemperatur_Soll",
+    Entity {
+      entity_name: "Buffer Desired Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_Puffertemperatur_Ist",
+    Entity {
+      entity_name: "Buffer Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_Puffertemperatur_1",
+    Entity {
+      entity_name: "Buffer Temperature 1",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_Puffertemperatur_2",
+    Entity {
+      entity_name: "Buffer Temperature 2",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_Puffertemperatur_3",
+    Entity {
+      entity_name: "Buffer Temperature 3",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  ("Ecotronic_Puffer_Niveau", Entity { entity_name: "Buffer Niveau", entity_type: EntityType::Number { step: 1.0 } }),
+  ("Ecotronic_Puffer_Neigung", Entity { entity_name: "Buffer Incline", entity_type: EntityType::Number { step: 0.1 } }),
+  // Hot Water
+  (
+    "Ecotronic_Bedien_WW_Solltemperatur",
+    Entity { entity_name: "Hot Water Desired Temperature", entity_type: EntityType::Number { step: 0.1 } },
+  ),
+  // Heating Circuit 1
+  (
+    "Ecotronic_Betriebsart_HK1",
+    Entity { entity_name: "HC1 Operating Mode", entity_type: EntityType::Select { category: EntityCategory::Config } },
+  ),
+  (
+    "Ecotronic_Raumsoll_Normal_HK1",
+    Entity { entity_name: "HC1 Desired Room Temperature", entity_type: EntityType::Number { step: 0.1 } },
+  ),
+  (
+    "Ecotronic_Raumsoll_Reduziert_HK1",
+    Entity { entity_name: "HC1 Desired Reduced Room Temperature", entity_type: EntityType::Number { step: 0.1 } },
+  ),
+  (
     "VT_SolltemperaturA1M1",
-    "VT_SolltemperaturM2",
+    Entity {
+      entity_name: "HC1 Desired Flow Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_Heizung_Wunschtemperatur_HK1",
+    Entity {
+      entity_name: "HC1 Desired Heating Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
     "Ecotronic_Vorlauftemperatur_HK1",
-    "Ecotronic_Vorlauftemperatur_HK2",
-    "Temperatur_2_M1",
-    "Temperatur_2_M2",
-    "SC100_KesselIsttemperatur",
-    "SC100_Lambdasonde",
-    "Gemischte_AT",
-    "Ecotronic_Gemischte_AT",
-    "Ecotronic_Umschalteinheit_Sonde",
-    "Ecotronic_Umschalteinheit_Sonde_Laufzeit",
+    Entity {
+      entity_name: "HC1 Flow Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  // (
+  //   "Temperatur_2_M1", // Same as `Ecotronic_Vorlauftemperatur_HK1`.
+  //   Entity {
+  //     entity_name: "hc1_temperature_2",
+  //     entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+  //   },
+  // ),
+  (
+    "Ecotronic_HK_Ferienbetrieb_HK1",
+    Entity {
+      entity_name: "HC1 Vacation Mode",
+      entity_type: EntityType::BinarySensor { category: EntityCategory::None },
+    },
+  ),
+  ("Ecotronic_FerienBeginn_HK1", Entity { entity_name: "HC1 Vacaction Mode Begin", entity_type: EntityType::Date }),
+  ("Ecotronic_FerienEnde_HK1", Entity { entity_name: "HC1 Vacation Mode End", entity_type: EntityType::Date }),
+  (
+    "Ecotronic_BedienPartybetriebM1",
+    Entity { entity_name: "HC1 Desired Party Mode Temperature", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  ("Ecotronic_BedienSparbetrieb_HK1", Entity { entity_name: "HC1 Energy Saver Mode", entity_type: EntityType::Switch }),
+  ("Ecotronic_BedienNiveauM1", Entity { entity_name: "HC1 Niveau", entity_type: EntityType::Number { step: 1.0 } }),
+  ("Ecotronic_BedienNeigung_HK1", Entity { entity_name: "HC1 Incline", entity_type: EntityType::Number { step: 0.1 } }),
+  (
+    "Ecotronic_Pumpe_HK1",
+    Entity { entity_name: "HC1 Pump", entity_type: EntityType::BinarySensor { category: EntityCategory::Diagnostic } },
+  ),
+  (
     "Ecotronic_Mischerposition_HK1",
+    Entity {
+      entity_name: "HC1 Mixer Position",
+      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
+    "Ecotronic_Heizungstatus",
+    Entity {
+      entity_name: "HC1 Heating Status",
+      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::Diagnostic },
+    },
+  ),
+  // Heating Circuit 2
+  (
+    "Ecotronic_Betriebsart_HK2",
+    Entity { entity_name: "HC2 Operating Mode", entity_type: EntityType::Select { category: EntityCategory::Config } },
+  ),
+  (
+    "Ecotronic_Raumsoll_Normal_HK2",
+    Entity { entity_name: "HC2 Desired Room Temperature", entity_type: EntityType::Number { step: 0.1 } },
+  ),
+  (
+    "Ecotronic_Raumsoll_Reduziert_HK2",
+    Entity { entity_name: "HC2 Desired Reduced Room Temperature", entity_type: EntityType::Number { step: 0.1 } },
+  ),
+  (
+    "Ecotronic_Vorlauftemperatur_HK2",
+    Entity {
+      entity_name: "HC2 Flow Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  // (
+  //   "Temperatur_2_M2", // Same as `Ecotronic_Vorlauftemperatur_HK2`.
+  //   Entity { entity_name: "hc2_temperature_2", entity_type: EntityType::Sensor { accuracy_decimals: 1 },
+  //     category: EntityCategory::None },
+  // ),
+  (
+    "Ecotronic_Heizung_Wunschtemperatur_HK2",
+    Entity {
+      entity_name: "HC2 Desired Heating Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "VT_SolltemperaturM2",
+    Entity {
+      entity_name: "HC2 Desired Flow Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_HK_Ferienbetrieb_HK2",
+    Entity {
+      entity_name: "HC2 Vacation Mode",
+      entity_type: EntityType::BinarySensor { category: EntityCategory::None },
+    },
+  ),
+  ("Ecotronic_FerienBeginn_HK2", Entity { entity_name: "HC2 Vacation Mode Begin", entity_type: EntityType::Date }),
+  ("Ecotronic_FerienEnde_HK2", Entity { entity_name: "HC2 Vacation Mode End", entity_type: EntityType::Date }),
+  (
+    "Ecotronic_BedienPartybetriebM2",
+    Entity { entity_name: "HC2 Desired Party Mode Temperature", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  ("Ecotronic_BedienSparbetrieb_HK2", Entity { entity_name: "HC2 Energy Saver Mode", entity_type: EntityType::Switch }),
+  ("Ecotronic_BedienNiveauM2", Entity { entity_name: "HC2 Niveau", entity_type: EntityType::Number { step: 1.0 } }),
+  ("Ecotronic_BedienNeigung_HK2", Entity { entity_name: "HC2 Incline", entity_type: EntityType::Number { step: 0.1 } }),
+  (
+    "Ecotronic_Pumpe_HK2",
+    Entity { entity_name: "HC2 Pump", entity_type: EntityType::BinarySensor { category: EntityCategory::Diagnostic } },
+  ),
+  (
     "Ecotronic_Mischerposition_HK2",
+    Entity {
+      entity_name: "HC2 Mixer Position",
+      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
+    "Ecotronic_Heizungstatus_HK2",
+    Entity {
+      entity_name: "HC2 Heating Status",
+      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::Diagnostic },
+    },
+  ),
+  // Boiler
+  (
+    "Ecotronic_Kesseltype",
+    Entity { entity_name: "Boiler Type", entity_type: EntityType::TextSensor { category: EntityCategory::Diagnostic } },
+  ),
+  (
+    "Ecotronic_Kesselstatus",
+    Entity {
+      entity_name: "Boiler Status",
+      entity_type: EntityType::TextSensor { category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
+    "SC100_KesselIsttemperatur",
+    Entity {
+      entity_name: "Boiler Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "SC100_Lambdasonde",
+    Entity {
+      entity_name: "Lambda Probe",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
+    "Ecotronic_Kesselsolltemperatur",
+    Entity { entity_name: "Boiler Desired Temperature", entity_type: EntityType::Number { step: 0.1 } },
+  ),
+  (
+    "Ecotronic_Kessel_Rücklauf_Soll",
+    Entity { entity_name: "Boiler Desired Return Temperature", entity_type: EntityType::Number { step: 0.1 } },
+  ),
+  (
     "Ecotronic_Kesselrücklauftemperatur",
-    "Ecotronic_Füllstand_Entaschung",
-    "Ecotronic_Füllstand_Pellet",
-    "Ecotronic_Brennstoffverbrauch",
+    Entity {
+      entity_name: "Boiler Return Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  ("Ecotronic_Kesselstarts", Entity { entity_name: "Boiler Starts", entity_type: EntityType::Number { step: 1.0 } }),
+  (
     "Ecotronic_Betriebsstunden_Volllast",
+    Entity {
+      entity_name: "Operating Hours Full Load",
+      entity_type: EntityType::Sensor { accuracy_decimals: 3, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
     "Ecotronic_Betriebsstunden_Teillast",
-    "Ecotronic_Betriebsstunden_Saugmodul",
+    Entity {
+      entity_name: "Operating Hours Partial Load",
+      entity_type: EntityType::Sensor { accuracy_decimals: 3, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
     "Ecotronic_Betriebsstunden_Kessel",
+    Entity {
+      entity_name: "Boiler Operating Hours",
+      entity_type: EntityType::Sensor { accuracy_decimals: 3, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
     "Ecotronic_Betriebsstunden_Einschubschnecke",
+    Entity {
+      entity_name: "Pellet Worm Drive Operating Hours",
+      entity_type: EntityType::Sensor { accuracy_decimals: 3, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
     "Ecotronic_Betriebsminuten_Einschubschnecke",
-  ];
-  let binary_sensors =
-    ["Ecotronic_Pumpe_HK1", "Ecotronic_Pumpe_HK2", "Ecotronic_Heizungstatus", "Ecotronic_Heizungstatus_HK2"];
+    Entity {
+      entity_name: "Pellet Worm Drive Operating Minutes",
+      entity_type: EntityType::Sensor { accuracy_decimals: 3, category: EntityCategory::Diagnostic },
+    },
+  ),
+  // Ash
+  (
+    "Ecotronic_Füllstand_Entaschung",
+    Entity {
+      entity_name: "Ash Level",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  // Pellets
+  (
+    "Ecotronic_Brennstofflager_Füllstand",
+    Entity { entity_name: "Pellet Silo Level", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Brennstofflager_Minimalbegrenzung",
+    Entity { entity_name: "Pellet Silo Minimum Level", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Brennstofflager_Maximalbegrenzung",
+    Entity { entity_name: "Pellet Silo Maximum Level", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Füllstand_Pellet",
+    Entity {
+      entity_name: "Pellet Level",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_Brennstoffverbrauch",
+    Entity {
+      entity_name: "Pellet Consumption per Hour",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "NRF_Brennstoffverbrauch_Bedien",
+    Entity {
+      entity_name: "Pellet Consumption",
+      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_Pellet_Leerfahrzeit",
+    Entity { entity_name: "Pellet Hopper Empty Time", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  // Outside Temperature
+  (
+    "NRF_TemperaturFehler_ATS",
+    Entity {
+      entity_name: "Outside Temperature Status",
+      entity_type: EntityType::BinarySensor { category: EntityCategory::None },
+    },
+  ),
+  (
+    "NRF_TiefpassTemperaturwert_ATS",
+    Entity {
+      entity_name: "Outside Temperature Lowpass",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Gemischte_AT",
+    Entity {
+      entity_name: "Outside Temperature Mixed",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
+    "Ecotronic_Gemischte_AT",
+    Entity {
+      entity_name: "Outside Temperature Mixed 2",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  // Changeover Unit
+  (
+    "Ecotronic_Umschalteinheit_Sonde",
+    Entity {
+      entity_name: "Changeover Unit Current Probe",
+      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Sonde_Laufzeit",
+    Entity {
+      entity_name: "Changeover Unit Current Probe Runtime",
+      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_1",
+    Entity { entity_name: "Changeover Unit Probe 1 Runtime", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_2",
+    Entity { entity_name: "Changeover Unit Probe 2 Runtime", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_3",
+    Entity { entity_name: "Changeover Unit Probe 3 Runtime", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_4",
+    Entity { entity_name: "Changeover Unit Probe 4 Runtime", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_5",
+    Entity { entity_name: "Changeover Unit Probe 5 Runtime", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_6",
+    Entity { entity_name: "Changeover Unit Probe 6 Runtime", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_7",
+    Entity { entity_name: "Changeover Unit Probe 7 Runtime", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_8",
+    Entity { entity_name: "Changeover Unit Probe 8 Runtime", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Umschalteinheit_Laufzeit_Sonde_Soll",
+    Entity { entity_name: "Changeover Unit Desired Probe", entity_type: EntityType::Number { step: 1.0 } },
+  ),
+  (
+    "Ecotronic_Betriebsstunden_Saugmodul",
+    Entity {
+      entity_name: "Changeover Unit Operating Hours",
+      entity_type: EntityType::Sensor { accuracy_decimals: 3, category: EntityCategory::Diagnostic },
+    },
+  ),
+  // Errors
+  (
+    "ecnsysEventType~ErrorIndex",
+    Entity { entity_name: "Error", entity_type: EntityType::TextSensor { category: EntityCategory::Diagnostic } },
+  ),
+  (
+    "ecnsysEventType~Error",
+    Entity {
+      entity_name: "Error History",
+      entity_type: EntityType::TextSensor { category: EntityCategory::Diagnostic },
+    },
+  ),
+  ("Ecotronic_Fehler_Quittierung", Entity { entity_name: "Error Acknowledgement", entity_type: EntityType::Switch }),
+];
+
+fn unit_to_device_class(unit: &str, entity_name: &str) -> &'static str {
+  match unit {
+    "" => {
+      warn!("Unknown device class for entity without unit: {entity_name}");
+      ""
+    },
+    "°C" | "K" => "temperature",
+    "kg" => "weight",
+    "h" | "min" | "s" => "duration",
+    "kg/h" => "volume_flow_rate",
+    unit => {
+      warn!("Unknown device class for entity {entity_name} unit: {unit}");
+      "None"
+    },
+  }
+}
+
+pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&'static str, ProtoMessage> {
+  let device_id = "vitoligno_300c";
 
   let mut entity_map = HashMap::new();
 
-  for number in numbers {
+  for &(command_name, ref entity) in ENTITIES {
     let key = entity_map.len() as u32;
 
-    let command = commands[number];
+    let Some(command) = commands.get(command_name) else {
+      log::warn!("Command '{command_name}' not found.");
+      continue;
+    };
     let unit = command.unit().unwrap_or_default();
 
-    let device_class = match unit {
-      "" => {
-        warn!("Unknown device class for number: {number}");
-        ""
-      },
-      "°C" => "temperature",
-      "kg" => "weight",
-      unit => {
-        warn!("Unknown device class for unit: {unit}");
-        "None"
-      },
+    let name = entity.entity_name.to_owned();
+    let entity_id = entity.entity_name.to_lowercase().split(' ').collect::<Vec<&str>>().join("_");
+    let device_class = unit_to_device_class(unit, &entity_id);
+
+    if command.access_mode().is_write() {
+      assert_eq!(entity.category(), EntityCategory::Config, "Wrong category for {}", entity.entity_name);
+    } else {
+      assert_ne!(entity.category(), EntityCategory::Config, "Wrong category for {}", entity.entity_name);
     };
 
-    let entity_category =
-      if command.access_mode().is_write() { EntityCategory::Config } else { EntityCategory::Diagnostic };
-
-    entity_map.insert(
-      number,
-      ProtoMessage::ListEntitiesNumberResponse(ListEntitiesNumberResponse {
-        object_id: format!("{device_name}_{number}"), // TODO
-        key,
-        name: number.to_string(),
-        unique_id: format!("number_{number}"),
-        icon: "".into(), // TODO
-        unit_of_measurement: unit.to_owned(),
-        device_class: device_class.to_owned(),
-        min_value: command.lower_bound().map(|v| v as f32).unwrap_or(f32::MIN),
-        max_value: command.upper_bound().map(|v| v as f32).unwrap_or(f32::MAX),
-        step: 0.1,
-        disabled_by_default: false,
-        entity_category: entity_category as i32, // EntityCategory::None as i32 // TODO
-        mode: NumberMode::Box as i32,
-      }),
-    );
-  }
-
-  for sensor in sensors {
-    let key = entity_map.len() as u32;
-
-    let command = commands[sensor];
-    let unit = command.unit().unwrap_or_default();
-
-    let device_class = match unit {
-      "" => {
-        warn!("Unknown device class for sensor: {sensor}");
-        ""
+    match entity.entity_type {
+      EntityType::Number { step } => {
+        entity_map.insert(
+          command_name,
+          ProtoMessage::ListEntitiesNumberResponse(ListEntitiesNumberResponse {
+            object_id: format!("{device_id}_{entity_id}"), // TODO
+            key,
+            name,
+            unique_id: format!("number_{entity_id}"),
+            icon: "".into(), // TODO
+            unit_of_measurement: unit.to_owned(),
+            device_class: device_class.to_owned(),
+            min_value: command.lower_bound().map(|v| v as f32).unwrap_or(f32::MIN),
+            max_value: command.upper_bound().map(|v| v as f32).unwrap_or(f32::MAX),
+            step,
+            disabled_by_default: false,
+            entity_category: EntityCategory::Config as i32,
+            mode: NumberMode::Box as i32,
+          }),
+        );
       },
-      "°C" => "temperature",
-      "kg" => "weight",
-      unit => {
-        warn!("Unknown device class for unit: {unit}");
-        "None"
+      EntityType::Sensor { accuracy_decimals, category } => {
+        entity_map.insert(
+          command_name,
+          ProtoMessage::ListEntitiesSensorResponse(ListEntitiesSensorResponse {
+            object_id: format!("{device_id}_{entity_id}"), // TODO
+            key,
+            name,
+            unique_id: format!("sensor_{entity_id}"),
+            icon: "".into(), // TODO
+            unit_of_measurement: unit.to_owned(),
+            accuracy_decimals,
+            force_update: false,
+            device_class: device_class.to_owned(),
+            state_class: 1,            // SensorStateClass::StateClassMeasurement as i32 // TODO
+            legacy_last_reset_type: 0, // SensorLastResetType::LastResetNone as i32      // TODO
+            disabled_by_default: false,
+            entity_category: category as i32, // EntityCategory::None as i32 // TODO
+          }),
+        );
       },
-    };
+      EntityType::BinarySensor { category } => {
+        entity_map.insert(
+          command_name,
+          ProtoMessage::ListEntitiesBinarySensorResponse(ListEntitiesBinarySensorResponse {
+            object_id: format!("{device_id}_{entity_id}"), // TODO
+            key,
+            name,
+            unique_id: format!("binary_sensor_{entity_id}"), // TODO
+            icon: "".into(),                                 // TODO
+            device_class: "".into(),                         // TODO
+            is_status_binary_sensor: false,
+            disabled_by_default: false,
+            entity_category: category as i32,
+          }),
+        );
+      },
+      EntityType::Switch => {
+        entity_map.insert(
+          command_name,
+          ProtoMessage::ListEntitiesSwitchResponse(ListEntitiesSwitchResponse {
+            object_id: format!("{device_id}_{entity_id}"), // TODO
+            key,
+            name,
+            unique_id: format!("switch_{entity_id}"), // TODO
+            icon: "".into(),                          // TODO
+            device_class: "".into(),                  // TODO
+            disabled_by_default: false,
+            entity_category: EntityCategory::Config as i32,
+            assumed_state: false,
+          }),
+        );
+      },
+      EntityType::Date => {
+        entity_map.insert(
+          command_name,
+          ProtoMessage::ListEntitiesDateResponse(ListEntitiesDateResponse {
+            object_id: format!("{device_id}_{entity_id}"), // TODO
+            key,
+            name,
+            unique_id: format!("date_{entity_id}"), // TODO
+            icon: "mdi:calendar".into(),            // TODO
+            disabled_by_default: false,
+            entity_category: EntityCategory::Config as i32,
+          }),
+        );
+      },
+      EntityType::Select { category } => {
+        entity_map.insert(
+          command_name,
+          ProtoMessage::ListEntitiesSelectResponse(ListEntitiesSelectResponse {
+            object_id: format!("{device_id}_{entity_id}"), // TODO
+            key,
+            name,
+            unique_id: format!("select_{entity_id}"), // TODO
+            icon: "".into(),                          // TODO
+            disabled_by_default: false,
+            entity_category: category as i32,
+            options: {
+              let mapping = commands[command_name].mapping().unwrap();
+              mapping
+                .entries()
+                .map(|(&key, &value)| (key, value.to_owned()))
+                .collect::<BTreeMap<_, _>>()
+                .into_values()
+                .collect()
+            },
+          }),
+        );
+      },
+      EntityType::TextSensor { category } => {
+        let command = &commands[command_name];
 
-    let entity_category =
-      if command.access_mode().is_write() { EntityCategory::Config } else { EntityCategory::Diagnostic };
-
-    entity_map.insert(
-      sensor,
-      ProtoMessage::ListEntitiesSensorResponse(ListEntitiesSensorResponse {
-        object_id: format!("{device_name}_{sensor}"), // TODO
-        key,
-        name: sensor.to_string(),
-        unique_id: format!("sensor_{sensor}"),
-        icon: "".into(), // TODO
-        unit_of_measurement: unit.to_owned(),
-        accuracy_decimals: 2, // TODO
-        force_update: false,
-        device_class: device_class.to_owned(),
-        state_class: 1,            // SensorStateClass::StateClassMeasurement as i32 // TODO
-        legacy_last_reset_type: 0, // SensorLastResetType::LastResetNone as i32      // TODO
-        disabled_by_default: false,
-        entity_category: entity_category as i32, // EntityCategory::None as i32 // TODO
-      }),
-    );
-  }
-
-  for binary_sensor in binary_sensors {
-    let key = entity_map.len() as u32;
-    entity_map.insert(
-      binary_sensor,
-      ProtoMessage::ListEntitiesBinarySensorResponse(ListEntitiesBinarySensorResponse {
-        object_id: format!("{device_name}_{binary_sensor}"), // TODO
-        key,
-        name: binary_sensor.to_string(),
-        unique_id: format!("binary_sensor_{binary_sensor}"), // TODO
-        icon: "".into(),                                     // TODO
-        device_class: "".into(),                             // TODO
-        is_status_binary_sensor: true,
-        disabled_by_default: false,
-        entity_category: 0, // EntityCategory::None as i32
-      }),
-    );
+        if let Some(block_count) = command.block_count() {
+          for i in 0..block_count {
+            entity_map.insert(
+              command_name,
+              ProtoMessage::ListEntitiesTextSensorResponse(ListEntitiesTextSensorResponse {
+                object_id: format!("{device_id}_{entity_id}_{i}"), // TODO
+                key,
+                name: format!("{name} {i}"),
+                unique_id: format!("text_sensor_{entity_id}_{i}"), // TODO
+                icon: "".into(),                                   // TODO
+                device_class: "".into(),                           // TODO
+                disabled_by_default: false,
+                entity_category: category as i32,
+              }),
+            );
+          }
+        } else {
+          entity_map.insert(
+            command_name,
+            ProtoMessage::ListEntitiesTextSensorResponse(ListEntitiesTextSensorResponse {
+              object_id: format!("{device_id}_{entity_id}"), // TODO
+              key,
+              name,
+              unique_id: format!("text_sensor_{entity_id}"), // TODO
+              icon: "".into(),                               // TODO
+              device_class: "".into(),                       // TODO
+              disabled_by_default: false,
+              entity_category: category as i32,
+            }),
+          );
+        }
+      },
+    }
   }
 
   entity_map
