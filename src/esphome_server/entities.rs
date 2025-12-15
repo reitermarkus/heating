@@ -158,7 +158,7 @@ const ENTITIES: &[(&'static str, Entity)] = &[
     "Ecotronic_Heizungstatus",
     Entity {
       entity_name: "HC1 Heating Status",
-      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::Diagnostic },
+      entity_type: EntityType::Select { category: EntityCategory::Diagnostic },
     },
   ),
   // Heating Circuit 2
@@ -231,7 +231,7 @@ const ENTITIES: &[(&'static str, Entity)] = &[
     "Ecotronic_Heizungstatus_HK2",
     Entity {
       entity_name: "HC2 Heating Status",
-      entity_type: EntityType::Sensor { accuracy_decimals: 0, category: EntityCategory::Diagnostic },
+      entity_type: EntityType::Select { category: EntityCategory::Diagnostic },
     },
   ),
   // Boiler
