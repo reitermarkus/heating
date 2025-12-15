@@ -483,7 +483,18 @@ fn unit_to_device_class(unit: &str, entity_name: &str) -> &'static str {
   }
 }
 
-pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&'static str, ProtoMessage> {
+pub enum MultiEntity {
+  Single(ProtoMessage),
+  Multiple(Vec<ProtoMessage>),
+}
+
+impl From<ProtoMessage> for MultiEntity {
+  fn from(message: ProtoMessage) -> Self {
+    Self::Single(message)
+  }
+}
+
+pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&'static str, MultiEntity> {
   let device_id = "vitoligno_300c";
 
   let mut entity_map = HashMap::new();
@@ -525,7 +536,8 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
             disabled_by_default: false,
             entity_category: EntityCategory::Config as i32,
             mode: NumberMode::Box as i32,
-          }),
+          })
+          .into(),
         );
       },
       EntityType::Sensor { accuracy_decimals, category } => {
@@ -545,7 +557,8 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
             legacy_last_reset_type: 0, // SensorLastResetType::LastResetNone as i32      // TODO
             disabled_by_default: false,
             entity_category: category as i32, // EntityCategory::None as i32 // TODO
-          }),
+          })
+          .into(),
         );
       },
       EntityType::BinarySensor { category } => {
@@ -561,7 +574,8 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
             is_status_binary_sensor: false,
             disabled_by_default: false,
             entity_category: category as i32,
-          }),
+          })
+          .into(),
         );
       },
       EntityType::Switch => {
@@ -577,7 +591,8 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
             disabled_by_default: false,
             entity_category: EntityCategory::Config as i32,
             assumed_state: false,
-          }),
+          })
+          .into(),
         );
       },
       EntityType::Date => {
@@ -591,7 +606,8 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
             icon: "mdi:calendar".into(),            // TODO
             disabled_by_default: false,
             entity_category: EntityCategory::Config as i32,
-          }),
+          })
+          .into(),
         );
       },
       EntityType::Select { category } => {
@@ -614,28 +630,34 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
                 .into_values()
                 .collect()
             },
-          }),
+          })
+          .into(),
         );
       },
       EntityType::TextSensor { category } => {
         let command = &commands[command_name];
 
         if let Some(block_count) = command.block_count() {
-          for i in 0..block_count {
-            entity_map.insert(
-              command_name,
-              ProtoMessage::ListEntitiesTextSensorResponse(ListEntitiesTextSensorResponse {
-                object_id: format!("{device_id}_{entity_id}_{i}"), // TODO
-                key,
-                name: format!("{name} {i}"),
-                unique_id: format!("text_sensor_{entity_id}_{i}"), // TODO
-                icon: "".into(),                                   // TODO
-                device_class: "".into(),                           // TODO
-                disabled_by_default: false,
-                entity_category: category as i32,
-              }),
-            );
-          }
+          entity_map.insert(
+            command_name,
+            MultiEntity::Multiple(
+              (0..block_count)
+                .into_iter()
+                .map(|i| {
+                  ProtoMessage::ListEntitiesTextSensorResponse(ListEntitiesTextSensorResponse {
+                    object_id: format!("{device_id}_{entity_id}_{i}"), // TODO
+                    key: key + i as u32,
+                    name: format!("{name} {i}"),
+                    unique_id: format!("text_sensor_{entity_id}_{i}"), // TODO
+                    icon: "".into(),                                   // TODO
+                    device_class: "".into(),                           // TODO
+                    disabled_by_default: false,
+                    entity_category: category as i32,
+                  })
+                })
+                .collect(),
+            ),
+          );
         } else {
           entity_map.insert(
             command_name,
@@ -648,7 +670,8 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
               device_class: "".into(),                       // TODO
               disabled_by_default: false,
               entity_category: category as i32,
-            }),
+            })
+            .into(),
           );
         }
       },

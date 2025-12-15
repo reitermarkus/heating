@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io;
+use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::{future, net::SocketAddr};
 
@@ -18,6 +19,9 @@ use tokio::sync::oneshot::{self, Receiver, Sender};
 use vcontrol::types::Date;
 use vcontrol::{Command, VControl, Value};
 
+use crate::esphome_server::entities::MultiEntity;
+use crate::esphome_server::entity::Entity;
+
 mod entities;
 mod entity;
 
@@ -34,6 +38,26 @@ fn bool_state(value: &vcontrol::Value) -> (Option<bool>, bool) {
   };
 
   (state, missing_state)
+}
+
+fn map_entity_to_key(entity: &ProtoMessage) -> u32 {
+  match entity {
+    ProtoMessage::ListEntitiesBinarySensorResponse(res) => res.key,
+    ProtoMessage::ListEntitiesSensorResponse(res) => res.key,
+    ProtoMessage::ListEntitiesNumberResponse(res) => res.key,
+    ProtoMessage::ListEntitiesDateResponse(res) => res.key,
+    ProtoMessage::ListEntitiesTextSensorResponse(res) => res.key,
+    ProtoMessage::ListEntitiesSwitchResponse(res) => res.key,
+    ProtoMessage::ListEntitiesSelectResponse(res) => res.key,
+    _ => u32::MAX,
+  }
+}
+
+fn map_multi_entity_to_key(multi_entity: &MultiEntity) -> u32 {
+  match multi_entity {
+    MultiEntity::Single(entity) => map_entity_to_key(&entity),
+    MultiEntity::Multiple(entities) => entities.first().map(map_entity_to_key).unwrap_or(u32::MAX),
+  }
 }
 
 pub async fn start(
@@ -69,17 +93,6 @@ pub async fn start(
       let vcontrol = vcontrol.clone();
       let vcontrol_rx = vcontrol_rx.resubscribe();
       let entity_map = Arc::new(entities::entities(&commands));
-
-      let map_entity_to_key = |entity: &ProtoMessage| match entity {
-        ProtoMessage::ListEntitiesBinarySensorResponse(res) => res.key,
-        ProtoMessage::ListEntitiesSensorResponse(res) => res.key,
-        ProtoMessage::ListEntitiesNumberResponse(res) => res.key,
-        ProtoMessage::ListEntitiesDateResponse(res) => res.key,
-        ProtoMessage::ListEntitiesTextSensorResponse(res) => res.key,
-        ProtoMessage::ListEntitiesSwitchResponse(res) => res.key,
-        ProtoMessage::ListEntitiesSelectResponse(res) => res.key,
-        _ => u32::MAX,
-      };
 
       tokio::task::spawn(async move {
         let mut server = EspHomeApi::builder()
@@ -129,17 +142,26 @@ pub async fn start(
                 debug!("ListEntitiesRequest: {:?}", list_entities_request);
 
                 let mut entities = entity_map.values().collect::<Vec<_>>();
-                entities.sort_by_key(|e| map_entity_to_key(e));
+                entities.sort_by_key(|e| map_multi_entity_to_key(e));
 
                 for entity in entities {
-                  tx_clone.send(entity.clone()).await.unwrap();
+                  match entity {
+                    MultiEntity::Single(entity) => {
+                      tx_clone.send(entity.clone()).await.unwrap();
+                    },
+                    MultiEntity::Multiple(entities) => {
+                      for entity in entities {
+                        tx_clone.send(entity.clone()).await.unwrap();
+                      }
+                    },
+                  }
                 }
 
                 debug!("ListEntitiesDoneResponse");
                 tx_clone.send(ProtoMessage::ListEntitiesDoneResponse(ListEntitiesDoneResponse {})).await.unwrap();
               },
               ProtoMessage::NumberCommandRequest(NumberCommandRequest { key, state }) => {
-                let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_entity_to_key(e) == key) else {
+                let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
                   warn!("Unknown number command: {key}");
                   continue;
                 };
@@ -153,7 +175,7 @@ pub async fn start(
                 }
               },
               ProtoMessage::SwitchCommandRequest(SwitchCommandRequest { key, state }) => {
-                let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_entity_to_key(e) == key) else {
+                let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
                   warn!("Unknown switch command: {key}");
                   continue;
                 };
@@ -167,7 +189,7 @@ pub async fn start(
                 }
               },
               ProtoMessage::DateCommandRequest(DateCommandRequest { key, year, month, day }) => {
-                let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_entity_to_key(e) == key) else {
+                let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
                   warn!("Unknown date command: {key}");
                   continue;
                 };
@@ -191,7 +213,7 @@ pub async fn start(
                 tokio::spawn(async move {
                   debug!("State retrieval loop");
 
-                  loop {
+                  'outer: loop {
                     let (command_name, value) = match vcontrol_rx.recv().await {
                       Ok(res) => res,
                       Err(broadcast::error::RecvError::Closed) => break,
@@ -207,217 +229,29 @@ pub async fn start(
                     };
 
                     match entity {
-                      ProtoMessage::ListEntitiesBinarySensorResponse(res) => {
-                        let (state, missing_state) = bool_state(&value);
-
-                        let Some(state) = state else {
-                          warn!("Unsupported value for binary sensor {command_name}: {value:?}");
+                      MultiEntity::Single(entity) => {
+                        match send_entity_state(tx.clone(), vcontrol.clone(), command_name, &commands, entity, value)
+                          .await
+                        {
+                          ControlFlow::Continue(()) => continue,
+                          ControlFlow::Break(()) => break,
+                        }
+                      },
+                      MultiEntity::Multiple(entities) => {
+                        let vcontrol::Value::Array(values) = value else {
+                          log::warn!("Invalid value for command {command_name}: {value:?}");
                           continue;
                         };
 
-                        let message = BinarySensorStateResponse { key: res.key, state, missing_state };
-                        match tx.send(ProtoMessage::BinarySensorStateResponse(message)).await {
-                          Ok(_receivers) => (),
-                          Err(value) => {
-                            log::error!("Failed to send message: {value:?}");
-                            break;
-                          },
+                        for (entity, value) in entities.iter().zip(values.into_iter()) {
+                          match send_entity_state(tx.clone(), vcontrol.clone(), command_name, &commands, entity, value)
+                            .await
+                          {
+                            ControlFlow::Continue(()) => continue,
+                            ControlFlow::Break(()) => break 'outer,
+                          }
                         }
                       },
-                      ProtoMessage::ListEntitiesSwitchResponse(res) => {
-                        let (state, _) = bool_state(&value);
-
-                        let Some(state) = state else {
-                          warn!("Unsupported value for switch {command_name}: {value:?}");
-                          continue;
-                        };
-
-                        let message = SwitchStateResponse { key: res.key, state };
-                        match tx.send(ProtoMessage::SwitchStateResponse(message)).await {
-                          Ok(_receivers) => (),
-                          Err(value) => {
-                            log::error!("Failed to send message: {value:?}");
-                            break;
-                          },
-                        }
-                      },
-                      ProtoMessage::ListEntitiesSensorResponse(res) => {
-                        let mut missing_state = false;
-                        let state = match value {
-                          vcontrol::Value::Empty => {
-                            missing_state = true;
-                            Some(0.0)
-                          },
-                          vcontrol::Value::Int(n) => Some(n as f32),
-                          vcontrol::Value::Double(n) => Some(n as f32),
-                          _ => None,
-                        };
-
-                        let Some(state) = state else {
-                          warn!("Unsupported value for sensor: {value:?}");
-                          continue;
-                        };
-
-                        let message = SensorStateResponse { key: res.key, state, missing_state };
-                        if command_name == "Ecotronic_Kesselstarts" {
-                          log::debug!("Ecotronic_Kesselstarts response: {message:?}");
-                        }
-                        match tx.send(ProtoMessage::SensorStateResponse(message)).await {
-                          Ok(_receivers) => (),
-                          Err(value) => {
-                            log::error!("Failed to send message: {value:?}");
-                            break;
-                          },
-                        }
-                      },
-                      ProtoMessage::ListEntitiesNumberResponse(res) => {
-                        let mut missing_state = false;
-                        let state = match value {
-                          vcontrol::Value::Empty => {
-                            missing_state = true;
-                            Some(0.0)
-                          },
-                          vcontrol::Value::Int(n) => Some(n as f32),
-                          vcontrol::Value::Double(n) => Some(n as f32),
-                          _ => None,
-                        };
-
-                        let Some(state) = state else {
-                          warn!("Unsupported value for number: {value:?}");
-                          continue;
-                        };
-
-                        let message = NumberStateResponse { key: res.key, state, missing_state };
-                        match tx.send(ProtoMessage::NumberStateResponse(message)).await {
-                          Ok(_receivers) => (),
-                          Err(value) => {
-                            log::error!("Failed to send message: {value:?}");
-                            break;
-                          },
-                        }
-                      },
-                      ProtoMessage::ListEntitiesDateResponse(res) => {
-                        let mut missing_state = false;
-                        let state = match value {
-                          vcontrol::Value::Empty => {
-                            missing_state = true;
-                            Some((1970, 1, 1))
-                          },
-                          vcontrol::Value::Date(ref date) => {
-                            let (year, month, day) =
-                              (u32::from(date.year()), u32::from(date.month()), u32::from(date.day()));
-
-                            if year == 1970 && month == 1 && day == 1 {
-                              missing_state = true;
-                            }
-
-                            Some((year, month, day))
-                          },
-                          _ => None,
-                        };
-
-                        let Some((year, month, day)) = state else {
-                          warn!("Unsupported value for date: {value:?}");
-                          continue;
-                        };
-
-                        let message = DateStateResponse { key: res.key, missing_state, year, month, day };
-                        match tx.send(ProtoMessage::DateStateResponse(message)).await {
-                          Ok(_receivers) => (),
-                          Err(value) => {
-                            log::error!("Failed to send message: {value:?}");
-                            break;
-                          },
-                        }
-                      },
-                      ProtoMessage::ListEntitiesTextSensorResponse(res) => {
-                        let mut missing_state = false;
-                        let state = match value {
-                          vcontrol::Value::Empty => {
-                            missing_state = true;
-                            "".to_owned()
-                          },
-                          vcontrol::Value::String(s) => s,
-                          vcontrol::Value::Int(n) => {
-                            if let Some(mapping) = commands[command_name].mapping().as_ref() {
-                              mapping.get(&(n as i32)).map(|&s| s.to_owned()).unwrap_or(n.to_string())
-                            } else {
-                              n.to_string()
-                            }
-                          },
-                          vcontrol::Value::Array(array) => {
-                            let mut states = Vec::new();
-
-                            let vcontrol = vcontrol.read().await;
-                            let vcontrol = vcontrol.lock().await;
-
-                            for value in array {
-                              states.push(if let vcontrol::Value::Error(error) = value {
-                                let time = error.time().map(|time| time.to_string()).unwrap_or("Unknown time".into());
-                                let error = error.to_str(vcontrol.device()).unwrap_or("Unknown error").to_string();
-
-                                format!("{time}: {error}")
-                              } else {
-                                format!("{value:?}")
-                              });
-                            }
-
-                            states.join("\n")
-                          },
-                          vcontrol::Value::Error(error) => {
-                            let vcontrol = vcontrol.read().await;
-                            let vcontrol = vcontrol.lock().await;
-
-                            let time = error.time().map(|time| time.to_string()).unwrap_or("Unknown time".into());
-                            let error = error.to_str(vcontrol.device()).unwrap_or("Unknown error").to_string();
-
-                            format!("{time}: {error}")
-                          },
-                          state => format!("{state:?}"),
-                        };
-
-                        if command_name == "ecnsysEventType~Error" {
-                          log::error!("ecnsysEventType~Error: {state:?}");
-                        }
-
-                        let message = TextSensorStateResponse { key: res.key, missing_state, state };
-                        match tx.send(ProtoMessage::TextSensorStateResponse(message)).await {
-                          Ok(_receivers) => (),
-                          Err(value) => {
-                            log::error!("Failed to send message: {value:?}");
-                            break;
-                          },
-                        }
-                      },
-                      ProtoMessage::ListEntitiesSelectResponse(res) => {
-                        let mut missing_state = false;
-                        let state = match value {
-                          vcontrol::Value::Empty => {
-                            missing_state = true;
-                            Some("".into())
-                          },
-                          vcontrol::Value::Int(n) => {
-                            let mapping = commands[command_name].mapping().unwrap();
-                            Some(mapping[&(n as i32)].to_owned())
-                          },
-                          _ => None,
-                        };
-
-                        let Some(state) = state else {
-                          warn!("Unsupported value for sensor: {value:?}");
-                          continue;
-                        };
-
-                        let message = SelectStateResponse { key: res.key, missing_state, state };
-                        match tx.send(ProtoMessage::SelectStateResponse(message)).await {
-                          Ok(_receivers) => (),
-                          Err(value) => {
-                            log::error!("Failed to send message: {value:?}");
-                            break;
-                          },
-                        }
-                      },
-                      _ => (),
                     }
                   }
                 });
@@ -448,4 +282,217 @@ pub async fn start(
   };
 
   (main_server, server_stop_tx, server_stopped_rx)
+}
+
+async fn send_entity_state(
+  mut tx: tokio::sync::mpsc::Sender<ProtoMessage>,
+  vcontrol: Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
+  command_name: &'static str,
+  commands: &HashMap<&'static str, &'static Command>,
+  entity: &ProtoMessage,
+  value: vcontrol::Value,
+) -> ControlFlow<()> {
+  match entity {
+    ProtoMessage::ListEntitiesBinarySensorResponse(res) => {
+      let (state, missing_state) = bool_state(&value);
+
+      let Some(state) = state else {
+        warn!("Unsupported value for binary sensor {command_name}: {value:?}");
+        return ControlFlow::Continue(());
+      };
+
+      let message = BinarySensorStateResponse { key: res.key, state, missing_state };
+      match tx.send(ProtoMessage::BinarySensorStateResponse(message)).await {
+        Ok(_receivers) => (),
+        Err(value) => {
+          log::error!("Failed to send message: {value:?}");
+          return ControlFlow::Break(());
+        },
+      }
+    },
+    ProtoMessage::ListEntitiesSwitchResponse(res) => {
+      let (state, _) = bool_state(&value);
+
+      let Some(state) = state else {
+        warn!("Unsupported value for switch {command_name}: {value:?}");
+        return ControlFlow::Continue(());
+      };
+
+      let message = SwitchStateResponse { key: res.key, state };
+      match tx.send(ProtoMessage::SwitchStateResponse(message)).await {
+        Ok(_receivers) => (),
+        Err(value) => {
+          log::error!("Failed to send message: {value:?}");
+          return ControlFlow::Break(());
+        },
+      }
+    },
+    ProtoMessage::ListEntitiesSensorResponse(res) => {
+      let mut missing_state = false;
+      let state = match value {
+        vcontrol::Value::Empty => {
+          missing_state = true;
+          Some(0.0)
+        },
+        vcontrol::Value::Int(n) => Some(n as f32),
+        vcontrol::Value::Double(n) => Some(n as f32),
+        _ => None,
+      };
+
+      let Some(state) = state else {
+        warn!("Unsupported value for sensor: {value:?}");
+        return ControlFlow::Continue(());
+      };
+
+      let message = SensorStateResponse { key: res.key, state, missing_state };
+      if command_name == "Ecotronic_Kesselstarts" {
+        log::debug!("Ecotronic_Kesselstarts response: {message:?}");
+      }
+      match tx.send(ProtoMessage::SensorStateResponse(message)).await {
+        Ok(_receivers) => (),
+        Err(value) => {
+          log::error!("Failed to send message: {value:?}");
+          return ControlFlow::Break(());
+        },
+      }
+    },
+    ProtoMessage::ListEntitiesNumberResponse(res) => {
+      let mut missing_state = false;
+      let state = match value {
+        vcontrol::Value::Empty => {
+          missing_state = true;
+          Some(0.0)
+        },
+        vcontrol::Value::Int(n) => Some(n as f32),
+        vcontrol::Value::Double(n) => Some(n as f32),
+        _ => None,
+      };
+
+      let Some(state) = state else {
+        warn!("Unsupported value for number: {value:?}");
+        return ControlFlow::Continue(());
+      };
+
+      let message = NumberStateResponse { key: res.key, state, missing_state };
+      match tx.send(ProtoMessage::NumberStateResponse(message)).await {
+        Ok(_receivers) => (),
+        Err(value) => {
+          log::error!("Failed to send message: {value:?}");
+          return ControlFlow::Break(());
+        },
+      }
+    },
+    ProtoMessage::ListEntitiesDateResponse(res) => {
+      let mut missing_state = false;
+      let state = match value {
+        vcontrol::Value::Empty => {
+          missing_state = true;
+          Some((1970, 1, 1))
+        },
+        vcontrol::Value::Date(ref date) => {
+          let (year, month, day) = (u32::from(date.year()), u32::from(date.month()), u32::from(date.day()));
+
+          if year == 1970 && month == 1 && day == 1 {
+            missing_state = true;
+          }
+
+          Some((year, month, day))
+        },
+        _ => None,
+      };
+
+      let Some((year, month, day)) = state else {
+        warn!("Unsupported value for date: {value:?}");
+        return ControlFlow::Continue(());
+      };
+
+      let message = DateStateResponse { key: res.key, missing_state, year, month, day };
+      match tx.send(ProtoMessage::DateStateResponse(message)).await {
+        Ok(_receivers) => (),
+        Err(value) => {
+          log::error!("Failed to send message: {value:?}");
+          return ControlFlow::Break(());
+        },
+      }
+    },
+    ProtoMessage::ListEntitiesTextSensorResponse(res) => {
+      let mut missing_state = false;
+      let state = match value {
+        vcontrol::Value::Empty => {
+          missing_state = true;
+          "".to_owned()
+        },
+        vcontrol::Value::String(s) => s,
+        vcontrol::Value::Int(n) => {
+          if let Some(mapping) = commands[command_name].mapping().as_ref() {
+            mapping.get(&(n as i32)).map(|&s| s.to_owned()).unwrap_or(n.to_string())
+          } else {
+            n.to_string()
+          }
+        },
+        vcontrol::Value::ByteArray(bytes) => {
+          bytes.into_iter().map(|byte| format!("{byte:02X}")).collect::<Vec<String>>().join(", ")
+        },
+        vcontrol::Value::Error(error) => {
+          let vcontrol = vcontrol.read().await;
+          let vcontrol = vcontrol.lock().await;
+
+          let error_string = error.to_str(vcontrol.device());
+          if let Some(time) = error.time() {
+            let error = error_string.unwrap_or("Unknown error").to_owned();
+            format!("{time}\n{error}")
+          } else {
+            if let Some(error_string) = error_string
+              && error.index() != 0
+            {
+              error_string.to_owned()
+            } else {
+              "".into()
+            }
+          }
+        },
+        state => format!("{state:?}"),
+      };
+
+      let message = TextSensorStateResponse { key: res.key, missing_state, state };
+      match tx.send(ProtoMessage::TextSensorStateResponse(message)).await {
+        Ok(_receivers) => (),
+        Err(value) => {
+          log::error!("Failed to send message: {value:?}");
+          return ControlFlow::Break(());
+        },
+      }
+    },
+    ProtoMessage::ListEntitiesSelectResponse(res) => {
+      let mut missing_state = false;
+      let state = match value {
+        vcontrol::Value::Empty => {
+          missing_state = true;
+          Some("".into())
+        },
+        vcontrol::Value::Int(n) => {
+          let mapping = commands[command_name].mapping().unwrap();
+          Some(mapping[&(n as i32)].to_owned())
+        },
+        _ => None,
+      };
+
+      let Some(state) = state else {
+        warn!("Unsupported value for sensor: {value:?}");
+        return ControlFlow::Continue(());
+      };
+
+      let message = SelectStateResponse { key: res.key, missing_state, state };
+      match tx.send(ProtoMessage::SelectStateResponse(message)).await {
+        Ok(_receivers) => (),
+        Err(value) => {
+          log::error!("Failed to send message: {value:?}");
+          return ControlFlow::Break(());
+        },
+      }
+    },
+    _ => (),
+  }
+
+  ControlFlow::Continue(())
 }
