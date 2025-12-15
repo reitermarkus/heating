@@ -254,9 +254,16 @@ const ENTITIES: &[(&'static str, Entity)] = &[
     },
   ),
   (
+    "Ecotronic_Abgastemperatur",
+    Entity {
+      entity_name: "Boiler Exhaust Temperature",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::None },
+    },
+  ),
+  (
     "SC100_Lambdasonde",
     Entity {
-      entity_name: "Lambda Probe",
+      entity_name: "Boiler Exhaust Rest O2",
       entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::Diagnostic },
     },
   ),
