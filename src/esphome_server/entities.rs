@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, HashMap};
 use esphome_native_api::{
   parser::ProtoMessage,
   proto::version_2025_6_3::{
-    EntityCategory, ListEntitiesBinarySensorResponse, ListEntitiesDateResponse, ListEntitiesNumberResponse,
-    ListEntitiesSelectResponse, ListEntitiesSensorResponse, ListEntitiesSwitchResponse, ListEntitiesTextSensorResponse,
-    NumberMode,
+    EntityCategory, ListEntitiesBinarySensorResponse, ListEntitiesDateResponse, ListEntitiesDateTimeResponse,
+    ListEntitiesNumberResponse, ListEntitiesSelectResponse, ListEntitiesSensorResponse, ListEntitiesSwitchResponse,
+    ListEntitiesTextSensorResponse, NumberMode,
   },
 };
 use log::warn;
@@ -499,9 +499,9 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
 
   let mut entity_map = HashMap::new();
 
-  for &(command_name, ref entity) in ENTITIES {
-    let key = entity_map.len() as u32;
+  let mut key = 0;
 
+  for &(command_name, ref entity) in ENTITIES {
     let Some(command) = commands.get(command_name) else {
       log::warn!("Command '{command_name}' not found.");
       continue;
@@ -643,21 +643,43 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
             MultiEntity::Multiple(
               (0..block_count)
                 .into_iter()
-                .map(|i| {
-                  ProtoMessage::ListEntitiesTextSensorResponse(ListEntitiesTextSensorResponse {
+                .flat_map(|i| {
+                  let mut entities = Vec::new();
+
+                  if command.data_type() == DataType::Error {
+                    entities.push(ProtoMessage::ListEntitiesDateTimeResponse(ListEntitiesDateTimeResponse {
+                      object_id: format!("{device_id}_{entity_id}_{i}"), // TODO
+                      key,
+                      name: format!("{name} {i} Time"),
+                      unique_id: format!("date_time_{entity_id}_{i}"), // TODO
+                      icon: "".into(),                                 // TODO
+                      disabled_by_default: false,
+                      entity_category: category as i32,
+                    }));
+
+                    key += 1;
+                  }
+
+                  entities.push(ProtoMessage::ListEntitiesTextSensorResponse(ListEntitiesTextSensorResponse {
                     object_id: format!("{device_id}_{entity_id}_{i}"), // TODO
-                    key: key + i as u32,
-                    name: format!("{name} {i}"),
+                    key,
+                    name: format!("{name} {i} Message"),
                     unique_id: format!("text_sensor_{entity_id}_{i}"), // TODO
                     icon: "".into(),                                   // TODO
                     device_class: "".into(),                           // TODO
                     disabled_by_default: false,
                     entity_category: category as i32,
-                  })
+                  }));
+                  key += 1;
+
+                  entities
                 })
                 .collect(),
             ),
           );
+
+          // `key` already incremented.
+          continue;
         } else {
           entity_map.insert(
             command_name,
@@ -675,7 +697,9 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
           );
         }
       },
-    }
+    };
+
+    key += 1;
   }
 
   entity_map

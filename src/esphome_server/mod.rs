@@ -1,14 +1,14 @@
 use std::collections::HashMap;
-use std::io;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::{future, net::SocketAddr};
+use std::{io, iter};
 
 use esphome_native_api::esphomeapi::EspHomeApi;
 use esphome_native_api::parser::ProtoMessage;
 use esphome_native_api::proto::version_2025_6_3::{
-  BinarySensorStateResponse, DateCommandRequest, DateStateResponse, NumberCommandRequest, NumberStateResponse,
-  SelectStateResponse, SwitchCommandRequest, SwitchStateResponse, TextSensorStateResponse,
+  BinarySensorStateResponse, DateCommandRequest, DateStateResponse, DateTimeStateResponse, NumberCommandRequest,
+  NumberStateResponse, SelectStateResponse, SwitchCommandRequest, SwitchStateResponse, TextSensorStateResponse,
 };
 use esphome_native_api::proto::version_2025_6_3::{ListEntitiesDoneResponse, SensorStateResponse};
 use log::{debug, info, warn};
@@ -243,7 +243,9 @@ pub async fn start(
                           continue;
                         };
 
-                        for (entity, value) in entities.iter().zip(values.into_iter()) {
+                        for (entity, value) in
+                          entities.iter().zip(values.into_iter().flat_map(|v| iter::repeat_n(v, 2)))
+                        {
                           match send_entity_state(tx.clone(), vcontrol.clone(), command_name, &commands, entity, value)
                             .await
                           {
@@ -415,6 +417,31 @@ async fn send_entity_state(
         },
       }
     },
+    ProtoMessage::ListEntitiesDateTimeResponse(res) => {
+      let (missing_state, epoch_seconds) = match value {
+        vcontrol::Value::Empty => (true, 0),
+        vcontrol::Value::Error(error) => {
+          if let Some(time) = error.time() {
+            (false, time.unix_timestamp())
+          } else {
+            (true, 0)
+          }
+        },
+        value => {
+          warn!("Unsupported value for date-time: {value:?}");
+          return ControlFlow::Continue(());
+        },
+      };
+
+      let message = DateTimeStateResponse { key: res.key, missing_state, epoch_seconds };
+      match tx.send(ProtoMessage::DateTimeStateResponse(message)).await {
+        Ok(_receivers) => (),
+        Err(value) => {
+          log::error!("Failed to send message: {value:?}");
+          return ControlFlow::Break(());
+        },
+      }
+    },
     ProtoMessage::ListEntitiesTextSensorResponse(res) => {
       let mut missing_state = false;
       let state = match value {
@@ -437,19 +464,7 @@ async fn send_entity_state(
           let vcontrol = vcontrol.read().await;
           let vcontrol = vcontrol.lock().await;
 
-          let error_string = error.to_str(vcontrol.device());
-          if let Some(time) = error.time() {
-            let error = error_string.unwrap_or("Unknown error").to_owned();
-            format!("{time}\n{error}")
-          } else {
-            if let Some(error_string) = error_string
-              && error.index() != 0
-            {
-              error_string.to_owned()
-            } else {
-              "".into()
-            }
-          }
+          error.to_str(vcontrol.device()).unwrap_or_default().to_owned()
         },
         state => format!("{state:?}"),
       };
