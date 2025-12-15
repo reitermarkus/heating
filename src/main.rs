@@ -16,7 +16,6 @@ async fn main() {
   let optolink_device = env::var("OPTOLINK_DEVICE").unwrap_or_else(|_| "/dev/optolink".into());
 
   let device = if optolink_device.contains(':') {
-    dbg!(&optolink_device);
     Optolink::connect(optolink_device).await.expect("Failed to connect to Optolink device")
   } else {
     Optolink::open(optolink_device).await.expect("Failed to open Optolink device")

@@ -1,14 +1,10 @@
-use std::{
-  collections::HashMap,
-  io,
-  sync::{Arc, Weak},
-};
+use std::{collections::HashMap, io, sync::Arc};
 
 use actix_server::ServerHandle;
 use tokio::sync::broadcast;
 use tokio::sync::oneshot::{self, Receiver};
 use vcontrol::{Command, VControl, Value};
-use webthing::{BaseActionGenerator, Thing, ThingsType, WebThingServer};
+use webthing::{BaseActionGenerator, ThingsType, WebThingServer};
 
 mod thing;
 

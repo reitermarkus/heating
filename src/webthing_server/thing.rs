@@ -1,26 +1,17 @@
 use std::{
   collections::HashMap,
-  mem,
-  ops::Range,
   sync::{Arc, RwLock, Weak, mpsc::channel},
 };
 
-use itertools::Itertools;
-use rangemap::RangeMap;
 use schemars::{schema, schema_for};
 use serde_json::json;
-use tokio::sync::broadcast::{
-  self, Receiver,
-  error::{RecvError, SendError},
-};
+use tokio::sync::broadcast::{Receiver, error::RecvError};
 use webthing::{BaseProperty, BaseThing, Thing, property::ValueForwarder};
 
 use vcontrol::{
   AccessMode, Command, DataType, Device, VControl, Value,
   types::{CircuitTimes, Date, DateTime, DeviceId, DeviceIdF0, Error},
 };
-
-use crate::command_poller::poll_thread;
 
 struct VcontrolValueForwarder {
   command_name: &'static str,
