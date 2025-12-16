@@ -158,7 +158,7 @@ const ENTITIES: &[(&'static str, Entity)] = &[
     "Ecotronic_Heizungstatus",
     Entity {
       entity_name: "HC1 Heating Status",
-      entity_type: EntityType::Select { category: EntityCategory::Diagnostic },
+      entity_type: EntityType::TextSensor { category: EntityCategory::Diagnostic },
     },
   ),
   // Heating Circuit 2
@@ -231,7 +231,7 @@ const ENTITIES: &[(&'static str, Entity)] = &[
     "Ecotronic_Heizungstatus_HK2",
     Entity {
       entity_name: "HC2 Heating Status",
-      entity_type: EntityType::Select { category: EntityCategory::Diagnostic },
+      entity_type: EntityType::TextSensor { category: EntityCategory::Diagnostic },
     },
   ),
   // Boiler
@@ -264,6 +264,20 @@ const ENTITIES: &[(&'static str, Entity)] = &[
     "SC100_Lambdasonde",
     Entity {
       entity_name: "Boiler Exhaust Rest O2",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
+    "SC100_PositionPrimaerluftklappe",
+    Entity {
+      entity_name: "Boiler Primary Flap Position",
+      entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::Diagnostic },
+    },
+  ),
+  (
+    "SC100_PositionSekundaerluftklappe",
+    Entity {
+      entity_name: "Boiler Secondary Flap Position",
       entity_type: EntityType::Sensor { accuracy_decimals: 1, category: EntityCategory::Diagnostic },
     },
   ),
@@ -442,7 +456,7 @@ const ENTITIES: &[(&'static str, Entity)] = &[
   ),
   (
     "Ecotronic_Umschalteinheit_Laufzeit_Sonde_Soll",
-    Entity { entity_name: "Changeover Unit Desired Probe", entity_type: EntityType::Number { step: 1.0 } },
+    Entity { entity_name: "Changeover Unit Desired Probe Runtime", entity_type: EntityType::Number { step: 1.0 } },
   ),
   (
     "Ecotronic_Betriebsstunden_Saugmodul",
