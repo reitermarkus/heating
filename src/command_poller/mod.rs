@@ -9,9 +9,9 @@ use vcontrol::{Command, VControl, Value};
 pub async fn poll_thread(
   vcontrol: VControl,
 ) -> (
-  Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
+  Arc<tokio::sync::Mutex<VControl>>,
   Receiver<(&'static str, Value)>,
-  impl Future<Output = ()>,
+  impl Future<Output = Result<(), std::io::Error>>,
   HashMap<&'static str, &'static Command>,
 ) {
   let mut commands = HashMap::<&'static str, &'static Command>::new();
@@ -24,7 +24,7 @@ pub async fn poll_thread(
     commands.insert(command_name, command);
   }
 
-  let vcontrol = Arc::new(tokio::sync::RwLock::new(tokio::sync::Mutex::new(vcontrol)));
+  let vcontrol = Arc::new(tokio::sync::Mutex::new(vcontrol));
 
   let mut commands_sorted = commands
     .iter()
@@ -60,30 +60,29 @@ pub async fn poll_thread(
     command_ranges.insert(range, commands);
   }
 
-  eprintln!("commands: {}, command_ranges: {}", commands_sorted.len(), command_ranges.len());
+  log::debug!("commands: {}, command_ranges: {}", commands_sorted.len(), command_ranges.len());
   for command_range in command_ranges.iter().map(|(range, _)| range) {
-    eprintln!("{command_range:#04X?} {command_range:#05?}");
+    log::debug!("{command_range:#04X?} {command_range:#05?}");
   }
 
   let range_lengths = command_ranges.iter().map(|(range, _)| range).counts_by(|range| range.end - range.start);
-  dbg!(range_lengths);
+  log::debug!("range_lengths: {range_lengths:?}");
 
   let (tx, rx) = broadcast::channel((MAX_BLOCK_LEN * 2).next_power_of_two());
 
-  let vcontrol_clone = vcontrol.clone();
+  let vcontrol_weak = Arc::downgrade(&vcontrol);
   let poll_thread = async move {
-    log::info!("Starting poll thread.");
+    log::info!("Poll thread started.");
 
-    let vcontrol = vcontrol_clone;
-
+    let mut buffer = Vec::new();
     'outer: loop {
       for (range, commands) in command_ranges.iter() {
-        let vcontrol = vcontrol.read().await;
+        let Some(vcontrol) = vcontrol_weak.upgrade() else { break 'outer };
         let mut vcontrol = vcontrol.lock().await;
 
         let protocol = vcontrol.protocol();
-        let mut buffer = vec![0; (range.end - range.start) as usize];
-        protocol.get(vcontrol.optolink(), range.start, &mut buffer).await.unwrap();
+        buffer.resize((range.end - range.start) as usize, 0);
+        protocol.get(vcontrol.optolink(), range.start, &mut buffer).await?;
 
         let start_addr = commands[0].1.addr();
 
@@ -113,6 +112,8 @@ pub async fn poll_thread(
         }
       }
     }
+
+    Ok(())
   };
 
   (vcontrol, rx, poll_thread, commands)

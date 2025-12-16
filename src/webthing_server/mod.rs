@@ -10,11 +10,11 @@ mod thing;
 
 pub async fn start(
   port: u16,
-  vcontrol: Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
+  vcontrol: Arc<tokio::sync::Mutex<VControl>>,
   commands: HashMap<&'static str, &'static Command>,
   rx: broadcast::Receiver<(&'static str, Value)>,
 ) -> (impl Future<Output = Result<(), io::Error>>, ServerHandle, Receiver<()>) {
-  let thing = thing::make_thing(vcontrol.clone(), commands.clone()).await;
+  let thing = thing::make_thing(vcontrol, commands).await;
   let weak_thing = Arc::downgrade(&thing);
 
   let mut server = WebThingServer::new(
@@ -34,23 +34,24 @@ pub async fn start(
 
   let server_handle = server_thread.handle();
   let server_thread = tokio::spawn(async {
+    log::info!("Server thread started.");
     let res = server_thread.await;
     // Server may have been stopped via a signal, in which case the channel is already closed.
     let _ = server_stopped_tx.send(());
-    log::debug!("Server thread stopped.");
+    log::info!("Server thread stopped.");
     res
   });
-  let update_thread = thing::update_thread(weak_thing, rx);
   let update_thread = tokio::spawn(async move {
-    let res = update_thread.await;
-    log::debug!("Update thread stopped.");
+    log::info!("Update thread started.");
+    let res = thing::update_thread(weak_thing, rx).await;
+    log::info!("Update thread stopped.");
     Ok(res)
   });
 
   let server_thread = async {
     tokio::select! {
       res = server_thread => res.unwrap(),
-      res = update_thread =>res.unwrap(),
+      res = update_thread => res.unwrap(),
     }
   };
 

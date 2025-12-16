@@ -1,6 +1,9 @@
-use std::{env, process};
+use std::{env, process, sync::Arc};
 
-use tokio::signal::unix::{SignalKind, signal};
+use tokio::{
+  signal::unix::{SignalKind, signal},
+  sync::oneshot,
+};
 use vcontrol::{self, Optolink, VControl};
 
 use crate::command_poller::poll_thread;
@@ -31,9 +34,16 @@ async fn main() {
   let (webthing_server, webthing_server_handle, webthing_server_stopped) =
     webthing_server::start(port, vcontrol.clone(), commands.clone(), rx.resubscribe()).await;
   let (esphome_server, esphome_server_stop, esphome_server_stopped) =
-    esphome_server::start(6053, vcontrol.clone(), commands.clone(), rx).await;
+    esphome_server::start(6053, Arc::downgrade(&vcontrol), commands.clone(), rx).await;
 
-  tokio::spawn(poll_thread);
+  let (poll_thread_stopped_tx, poll_thread_stopped) = oneshot::channel();
+  let poll_thread = tokio::spawn(async {
+    let res = poll_thread.await;
+    // Poll thread may have been stopped via a signal, in which case the channel is already closed.
+    let _ = poll_thread_stopped_tx.send(());
+    log::info!("Poll thread stopped.");
+    res
+  });
 
   tokio::select! {
     _ = sigint => {
@@ -44,10 +54,15 @@ async fn main() {
     },
     _ = webthing_server_stopped => (),
     _ = esphome_server_stopped => (),
+    _ = poll_thread_stopped => (),
   }
+  drop(vcontrol);
 
-  webthing_server_handle.stop(true).await;
+  log::info!("Stopping WebThing server.");
+  let webthing_server_stop = webthing_server_handle.stop(true);
+  log::info!("Stopping ESPHome server.");
   esphome_server_stop.send(()).unwrap();
+  webthing_server_stop.await;
 
   match esphome_server.await {
     Ok(()) => {
@@ -65,6 +80,18 @@ async fn main() {
     },
     Err(err) => {
       log::error!("WebThing server crashed: {err}");
+      process::exit(1);
+    },
+  }
+
+  match poll_thread.await {
+    Ok(Ok(())) => (),
+    Ok(Err(err)) => {
+      log::error!("Poll thread crashed: {err}");
+      process::exit(1);
+    },
+    Err(_) => {
+      log::error!("Failed to join poll thread.");
       process::exit(1);
     },
   }

@@ -16,7 +16,7 @@ use vcontrol::{
 struct VcontrolValueForwarder {
   command_name: &'static str,
   command: &'static Command,
-  vcontrol: Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
+  vcontrol: Weak<tokio::sync::Mutex<VControl>>,
 }
 
 impl ValueForwarder for VcontrolValueForwarder {
@@ -46,14 +46,13 @@ impl ValueForwarder for VcontrolValueForwarder {
     };
 
     log::info!("Setting property {} to {}.", self.command_name, new_value);
-    let vcontrol = self.vcontrol.clone();
+    let vcontrol = self.vcontrol.upgrade().ok_or("Device connection closed.")?;
     let command_name = self.command_name;
 
     let (tx, rx) = channel();
 
     let arbiter = actix_rt::Arbiter::new();
     arbiter.spawn(async move {
-      let vcontrol = vcontrol.write().await;
       let mut vcontrol = vcontrol.lock().await;
       let res = vcontrol.set(command_name, vcontrol_value).await;
       tx.send(res).unwrap();
@@ -77,7 +76,7 @@ impl ValueForwarder for VcontrolValueForwarder {
 
 fn add_command(
   thing: &mut dyn Thing,
-  vcontrol: Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
+  vcontrol: Weak<tokio::sync::Mutex<VControl>>,
   device: &Device,
   command_name: &'static str,
   command: &'static Command,
@@ -149,7 +148,7 @@ fn add_command(
   let schema = serde_json::to_value(root_schema).unwrap().as_object().unwrap().clone();
   let description = schema;
 
-  let value_forwarder = VcontrolValueForwarder { command_name, command, vcontrol: vcontrol.clone() };
+  let value_forwarder = VcontrolValueForwarder { command_name, command, vcontrol: vcontrol };
 
   thing.add_property(Box::new(BaseProperty::new(
     command_name.to_string(),
@@ -160,13 +159,13 @@ fn add_command(
 }
 
 pub async fn make_thing(
-  vcontrol: Arc<tokio::sync::RwLock<tokio::sync::Mutex<VControl>>>,
+  vcontrol: Arc<tokio::sync::Mutex<VControl>>,
   commands: HashMap<&'static str, &'static Command>,
 ) -> Arc<RwLock<Box<dyn Thing + 'static>>> {
   // TODO: Get from `vcontrol`.
   let device_id = 1234;
 
-  let device = vcontrol.read().await.lock().await.device();
+  let device = vcontrol.lock().await.device();
 
   let mut thing = BaseThing::new(
     format!("urn:dev:ops:heating-{}", device_id),
@@ -176,8 +175,9 @@ pub async fn make_thing(
   );
 
   for (command_name, command) in &commands {
-    add_command(&mut thing, vcontrol.clone(), &device, command_name, command);
+    add_command(&mut thing, Arc::downgrade(&vcontrol), &device, command_name, command);
   }
+  drop(vcontrol);
 
   let thing: Box<dyn Thing + 'static> = Box::new(thing);
   let thing = Arc::new(RwLock::new(thing));
@@ -189,7 +189,7 @@ pub async fn update_thread(
   weak_thing: Weak<RwLock<Box<dyn Thing + 'static>>>,
   mut rx: Receiver<(&'static str, Value)>,
 ) {
-  loop {
+  while let Some(thing) = weak_thing.upgrade() {
     let recv_res = match rx.recv().await {
       Ok(res) => res,
       Err(RecvError::Closed) => break,
@@ -199,21 +199,7 @@ pub async fn update_thread(
       },
     };
 
-    let thing = if let Some(thing) = weak_thing.upgrade() { thing } else { return };
-
     let (command_name, new_value) = recv_res;
-
-    // let new_value = {
-    //   let vcontrol = vcontrol.read().await;
-    //   let mut vcontrol = vcontrol.lock().await;
-    //   match vcontrol.get(command_name).await {
-    //     Ok(value) => Some(value),
-    //     Err(err) => {
-    //       log::error!("Failed getting value for property '{}': {}", command_name, err);
-    //       None
-    //     },
-    //   }
-    // };
 
     let thing = thing.clone();
     actix_rt::task::spawn_blocking(move || {
@@ -258,7 +244,7 @@ pub async fn update_thread(
       }
 
       if old_value != new_value {
-        log::info!("Property '{}' changed from {} to {}.", command_name, old_value, new_value);
+        log::debug!("Property '{}' changed from {} to {}.", command_name, old_value, new_value);
       }
 
       t.property_notify(command_name.to_string(), new_value);
