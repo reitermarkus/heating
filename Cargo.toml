@@ -13,7 +13,7 @@ lto = true
 actix-rt = "2"
 env_logger = "0.11"
 log = "0.4"
-vcontrol = { version = "0.4.0", features = ["schemars"] }
+vcontrol = { version = "0.5.0", features = ["schemars"] }
 webthing = "0.15"
 serde_json = "1"
 tokio = "1"
@@ -26,7 +26,7 @@ itertools = "0.14.0"
 rangemap = "1.7.0"
 
 [patch.crates-io]
-# vcontrol = { git = "https://github.com/reitermarkus/vcontrol-rs" }
-vcontrol = { path = "../vcontrol-rs" }
+vcontrol = { git = "https://github.com/reitermarkus/vcontrol-rs" }
+# vcontrol = { path = "../vcontrol-rs" }
 webthing = { git = "https://github.com/WebThingsIO/webthing-rust" }
 esphome-native-api = { path = "../esphome-native-api" }
