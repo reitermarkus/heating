@@ -478,6 +478,10 @@ const ENTITIES: &[(&'static str, Entity)] = &[
     },
   ),
   ("Ecotronic_Fehler_Quittierung", Entity { entity_name: "Error Acknowledgement", entity_type: EntityType::Switch }),
+  (
+    "NRF_Uhrzeit",
+    Entity { entity_name: "System Time", entity_type: EntityType::DateTime { category: EntityCategory::Config } },
+  ),
 ];
 
 fn unit_to_device_class(unit: &str, entity_name: &str) -> &'static str {
@@ -644,6 +648,21 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
                 .into_values()
                 .collect()
             },
+          })
+          .into(),
+        );
+      },
+      EntityType::DateTime { category } => {
+        entity_map.insert(
+          command_name,
+          ProtoMessage::ListEntitiesDateTimeResponse(ListEntitiesDateTimeResponse {
+            object_id: format!("{device_id}_{entity_id}"),
+            key,
+            name,
+            unique_id: format!("date_time_{entity_id}"),
+            icon: "mdi:calendar-clock".into(),
+            disabled_by_default: false,
+            entity_category: category as i32,
           })
           .into(),
         );

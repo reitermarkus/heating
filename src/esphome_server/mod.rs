@@ -6,9 +6,9 @@ use std::{env, io, iter};
 use esphome_native_api::esphomeapi::EspHomeApi;
 use esphome_native_api::parser::ProtoMessage;
 use esphome_native_api::proto::version_2025_6_3::{
-  BinarySensorStateResponse, DateCommandRequest, DateStateResponse, DateTimeStateResponse, ListEntitiesRequest,
-  NumberCommandRequest, NumberStateResponse, SelectStateResponse, SubscribeHomeAssistantStateResponse,
-  SubscribeStatesRequest, SwitchCommandRequest, SwitchStateResponse, TextSensorStateResponse,
+  BinarySensorStateResponse, DateCommandRequest, DateStateResponse, DateTimeCommandRequest, DateTimeStateResponse,
+  ListEntitiesRequest, NumberCommandRequest, NumberStateResponse, SelectStateResponse, SubscribeStatesRequest,
+  SwitchCommandRequest, SwitchStateResponse, TextSensorStateResponse,
 };
 use esphome_native_api::proto::version_2025_6_3::{ListEntitiesDoneResponse, SensorStateResponse};
 use log::{debug, info, warn};
@@ -17,7 +17,7 @@ use tokio::net::TcpSocket;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::oneshot::{self, Receiver, Sender};
-use vcontrol::types::Date;
+use vcontrol::types::{Date, DateTime};
 use vcontrol::{Command, VControl, Value};
 
 use crate::esphome_server::entities::MultiEntity;
@@ -39,6 +39,7 @@ fn map_entity_to_key(entity: &ProtoMessage) -> u32 {
     ProtoMessage::ListEntitiesSensorResponse(res) => res.key,
     ProtoMessage::ListEntitiesNumberResponse(res) => res.key,
     ProtoMessage::ListEntitiesDateResponse(res) => res.key,
+    ProtoMessage::ListEntitiesDateTimeResponse(res) => res.key,
     ProtoMessage::ListEntitiesTextSensorResponse(res) => res.key,
     ProtoMessage::ListEntitiesSwitchResponse(res) => res.key,
     ProtoMessage::ListEntitiesSelectResponse(res) => res.key,
@@ -200,6 +201,20 @@ pub async fn start(
                   log::error!("Failed to set value ({date}) for {command_name}: {err}")
                 }
               },
+              ProtoMessage::DateTimeCommandRequest(DateTimeCommandRequest { key, epoch_seconds }) => {
+                let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
+                  warn!("Unknown date-time command: {key}");
+                  continue;
+                };
+
+                let Some(vcontrol) = vcontrol_weak.upgrade() else { break };
+                let mut vcontrol = vcontrol.lock().await;
+
+                let date_time = DateTime::from_unix_timestamp(epoch_seconds);
+                if let Err(err) = vcontrol.set(command_name, Value::DateTime(date_time)).await {
+                  log::error!("Failed to set value ({date_time}) for {command_name}: {err}")
+                }
+              },
               ProtoMessage::SubscribeStatesRequest(SubscribeStatesRequest {}) => {
                 let tx = tx.clone();
                 let mut vcontrol_rx = vcontrol_rx.resubscribe();
@@ -238,7 +253,7 @@ pub async fn start(
                         {
                           Ok(()) => continue,
                           Err(SendError(message)) => {
-                            log::error!("Failed to send message: {message:?}");
+                            log::error!("Failed to send message for command '{command_name}': {message:?}");
                             break 'outer;
                           },
                         }
@@ -264,7 +279,7 @@ pub async fn start(
                           {
                             Ok(()) => continue,
                             Err(SendError(message)) => {
-                              log::error!("Failed to send message: {message:?}");
+                              log::error!("Failed to send message for command '{command_name}': {message:?}");
                               break 'outer;
                             },
                           }
@@ -417,8 +432,9 @@ async fn send_entity_state(
             (true, 0)
           }
         },
+        vcontrol::Value::DateTime(datetime) => (false, datetime.unix_timestamp()),
         value => {
-          warn!("Unsupported value for date-time: {value:?}");
+          log::error!("Unsupported value for date-time: {value:?}");
           return Ok(());
         },
       };
