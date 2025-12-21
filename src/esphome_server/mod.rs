@@ -5,12 +5,12 @@ use std::{env, io, iter};
 
 use esphome_native_api::esphomeapi::EspHomeApi;
 use esphome_native_api::parser::ProtoMessage;
-use esphome_native_api::proto::version_2025_6_3::{
+use esphome_native_api::proto::version_2025_12_1::{
   BinarySensorStateResponse, DateCommandRequest, DateStateResponse, DateTimeCommandRequest, DateTimeStateResponse,
   ListEntitiesRequest, NumberCommandRequest, NumberStateResponse, SelectStateResponse, SubscribeStatesRequest,
   SwitchCommandRequest, SwitchStateResponse, TextSensorStateResponse,
 };
-use esphome_native_api::proto::version_2025_6_3::{ListEntitiesDoneResponse, SensorStateResponse};
+use esphome_native_api::proto::version_2025_12_1::{ListEntitiesDoneResponse, SensorStateResponse};
 use log::{debug, info, warn};
 use mac_address::get_mac_address;
 use tokio::net::TcpSocket;
@@ -159,7 +159,7 @@ pub async fn start(
                 debug!("ListEntitiesDoneResponse");
                 tx_clone.send(ProtoMessage::ListEntitiesDoneResponse(ListEntitiesDoneResponse {})).await.unwrap();
               },
-              ProtoMessage::NumberCommandRequest(NumberCommandRequest { key, state }) => {
+              ProtoMessage::NumberCommandRequest(NumberCommandRequest { key, state, .. }) => {
                 let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
                   warn!("Unknown number command: {key}");
                   continue;
@@ -173,7 +173,7 @@ pub async fn start(
                   log::error!("Failed to set value ({state}) for {command_name}: {err}")
                 }
               },
-              ProtoMessage::SwitchCommandRequest(SwitchCommandRequest { key, state }) => {
+              ProtoMessage::SwitchCommandRequest(SwitchCommandRequest { key, state, .. }) => {
                 let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
                   warn!("Unknown switch command: {key}");
                   continue;
@@ -187,7 +187,7 @@ pub async fn start(
                   log::error!("Failed to set value ({state}) for {command_name}: {err}")
                 }
               },
-              ProtoMessage::DateCommandRequest(DateCommandRequest { key, year, month, day }) => {
+              ProtoMessage::DateCommandRequest(DateCommandRequest { key, year, month, day, .. }) => {
                 let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
                   warn!("Unknown date command: {key}");
                   continue;
@@ -201,7 +201,7 @@ pub async fn start(
                   log::error!("Failed to set value ({date}) for {command_name}: {err}")
                 }
               },
-              ProtoMessage::DateTimeCommandRequest(DateTimeCommandRequest { key, epoch_seconds }) => {
+              ProtoMessage::DateTimeCommandRequest(DateTimeCommandRequest { key, epoch_seconds, .. }) => {
                 let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
                   warn!("Unknown date-time command: {key}");
                   continue;
@@ -327,6 +327,8 @@ async fn send_entity_state(
   entity: &ProtoMessage,
   value: vcontrol::Value,
 ) -> Result<(), SendError<ProtoMessage>> {
+  let device_id = 0;
+
   match entity {
     ProtoMessage::ListEntitiesBinarySensorResponse(res) => {
       let (missing_state, state) = match bool_state(&value) {
@@ -337,7 +339,7 @@ async fn send_entity_state(
         },
       };
 
-      let message = BinarySensorStateResponse { key: res.key, state, missing_state };
+      let message = BinarySensorStateResponse { device_id, key: res.key, state, missing_state };
       tx.send(ProtoMessage::BinarySensorStateResponse(message)).await?;
     },
     ProtoMessage::ListEntitiesSwitchResponse(res) => {
@@ -349,7 +351,7 @@ async fn send_entity_state(
         },
       };
 
-      let message = SwitchStateResponse { key: res.key, state };
+      let message = SwitchStateResponse { device_id, key: res.key, state };
       tx.send(ProtoMessage::SwitchStateResponse(message)).await?;
     },
     ProtoMessage::ListEntitiesSensorResponse(res) => {
@@ -369,7 +371,7 @@ async fn send_entity_state(
         return Ok(());
       };
 
-      let message = SensorStateResponse { key: res.key, state, missing_state };
+      let message = SensorStateResponse { device_id, key: res.key, state, missing_state };
       if command_name == "Ecotronic_Kesselstarts" {
         log::debug!("Ecotronic_Kesselstarts response: {message:?}");
       }
@@ -392,7 +394,7 @@ async fn send_entity_state(
         return Ok(());
       };
 
-      let message = NumberStateResponse { key: res.key, state, missing_state };
+      let message = NumberStateResponse { device_id, key: res.key, state, missing_state };
       tx.send(ProtoMessage::NumberStateResponse(message)).await?;
     },
     ProtoMessage::ListEntitiesDateResponse(res) => {
@@ -419,7 +421,7 @@ async fn send_entity_state(
         return Ok(());
       };
 
-      let message = DateStateResponse { key: res.key, missing_state, year, month, day };
+      let message = DateStateResponse { device_id, key: res.key, missing_state, year, month, day };
       tx.send(ProtoMessage::DateStateResponse(message)).await?;
     },
     ProtoMessage::ListEntitiesDateTimeResponse(res) => {
@@ -439,7 +441,7 @@ async fn send_entity_state(
         },
       };
 
-      let message = DateTimeStateResponse { key: res.key, missing_state, epoch_seconds };
+      let message = DateTimeStateResponse { device_id, key: res.key, missing_state, epoch_seconds };
       tx.send(ProtoMessage::DateTimeStateResponse(message)).await?;
     },
     ProtoMessage::ListEntitiesTextSensorResponse(res) => {
@@ -469,7 +471,7 @@ async fn send_entity_state(
         state => format!("{state:?}"),
       };
 
-      let message = TextSensorStateResponse { key: res.key, missing_state, state };
+      let message = TextSensorStateResponse { device_id, key: res.key, missing_state, state };
       tx.send(ProtoMessage::TextSensorStateResponse(message)).await?;
     },
     ProtoMessage::ListEntitiesSelectResponse(res) => {
@@ -491,7 +493,7 @@ async fn send_entity_state(
         return Ok(());
       };
 
-      let message = SelectStateResponse { key: res.key, missing_state, state };
+      let message = SelectStateResponse { device_id, key: res.key, missing_state, state };
       tx.send(ProtoMessage::SelectStateResponse(message)).await?;
     },
     _ => (),

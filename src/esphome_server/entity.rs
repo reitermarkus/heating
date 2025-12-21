@@ -1,4 +1,4 @@
-use esphome_native_api::proto::version_2025_6_3::EntityCategory;
+use esphome_native_api::proto::version_2025_12_1::EntityCategory;
 
 pub enum EntityType {
   Number { step: f32 },
