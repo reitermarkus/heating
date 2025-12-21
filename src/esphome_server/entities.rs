@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use esphome_native_api::{
   parser::ProtoMessage,
-  proto::version_2025_6_3::{
+  proto::version_2025_12_1::{
     EntityCategory, ListEntitiesBinarySensorResponse, ListEntitiesDateResponse, ListEntitiesDateTimeResponse,
     ListEntitiesNumberResponse, ListEntitiesSelectResponse, ListEntitiesSensorResponse, ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse, NumberMode,
@@ -513,7 +513,7 @@ impl From<ProtoMessage> for MultiEntity {
 }
 
 pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&'static str, MultiEntity> {
-  let device_id = "vitoligno_300c";
+  let device_id = 0;
 
   let mut entity_map = HashMap::new();
 
@@ -541,10 +541,10 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
         entity_map.insert(
           command_name,
           ProtoMessage::ListEntitiesNumberResponse(ListEntitiesNumberResponse {
-            object_id: format!("{device_id}_{entity_id}"), // TODO
+            device_id,
+            object_id: entity_id,
             key,
             name,
-            unique_id: format!("number_{entity_id}"),
             icon: "".into(), // TODO
             unit_of_measurement: unit.to_owned(),
             device_class: device_class.to_owned(),
@@ -562,10 +562,10 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
         entity_map.insert(
           command_name,
           ProtoMessage::ListEntitiesSensorResponse(ListEntitiesSensorResponse {
-            object_id: format!("{device_id}_{entity_id}"), // TODO
+            device_id,
+            object_id: entity_id,
             key,
             name,
-            unique_id: format!("sensor_{entity_id}"),
             icon: "".into(), // TODO
             unit_of_measurement: unit.to_owned(),
             accuracy_decimals,
@@ -583,12 +583,12 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
         entity_map.insert(
           command_name,
           ProtoMessage::ListEntitiesBinarySensorResponse(ListEntitiesBinarySensorResponse {
-            object_id: format!("{device_id}_{entity_id}"), // TODO
+            device_id,
+            object_id: entity_id,
             key,
             name,
-            unique_id: format!("binary_sensor_{entity_id}"), // TODO
-            icon: "".into(),                                 // TODO
-            device_class: "".into(),                         // TODO
+            icon: "".into(),         // TODO
+            device_class: "".into(), // TODO
             is_status_binary_sensor: false,
             disabled_by_default: false,
             entity_category: category as i32,
@@ -600,12 +600,12 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
         entity_map.insert(
           command_name,
           ProtoMessage::ListEntitiesSwitchResponse(ListEntitiesSwitchResponse {
-            object_id: format!("{device_id}_{entity_id}"), // TODO
+            device_id,
+            object_id: entity_id,
             key,
             name,
-            unique_id: format!("switch_{entity_id}"), // TODO
-            icon: "".into(),                          // TODO
-            device_class: "".into(),                  // TODO
+            icon: "".into(),         // TODO
+            device_class: "".into(), // TODO
             disabled_by_default: false,
             entity_category: EntityCategory::Config as i32,
             assumed_state: false,
@@ -617,11 +617,11 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
         entity_map.insert(
           command_name,
           ProtoMessage::ListEntitiesDateResponse(ListEntitiesDateResponse {
-            object_id: format!("{device_id}_{entity_id}"), // TODO
+            device_id,
+            object_id: entity_id,
             key,
             name,
-            unique_id: format!("date_{entity_id}"), // TODO
-            icon: "mdi:calendar".into(),            // TODO
+            icon: "mdi:calendar".into(), // TODO
             disabled_by_default: false,
             entity_category: EntityCategory::Config as i32,
           })
@@ -632,11 +632,11 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
         entity_map.insert(
           command_name,
           ProtoMessage::ListEntitiesSelectResponse(ListEntitiesSelectResponse {
-            object_id: format!("{device_id}_{entity_id}"), // TODO
+            device_id,
+            object_id: entity_id,
             key,
             name,
-            unique_id: format!("select_{entity_id}"), // TODO
-            icon: "".into(),                          // TODO
+            icon: "".into(), // TODO
             disabled_by_default: false,
             entity_category: category as i32,
             options: {
@@ -656,10 +656,10 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
         entity_map.insert(
           command_name,
           ProtoMessage::ListEntitiesDateTimeResponse(ListEntitiesDateTimeResponse {
-            object_id: format!("{device_id}_{entity_id}"),
+            device_id,
+            object_id: entity_id,
             key,
             name,
-            unique_id: format!("date_time_{entity_id}"),
             icon: "mdi:calendar-clock".into(),
             disabled_by_default: false,
             entity_category: category as i32,
@@ -681,11 +681,11 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
 
                   if command.data_type() == DataType::Error {
                     entities.push(ProtoMessage::ListEntitiesDateTimeResponse(ListEntitiesDateTimeResponse {
-                      object_id: format!("{device_id}_{entity_id}_{i}"), // TODO
+                      device_id,
+                      object_id: format!("{entity_id}_{i}"), // TODO
                       key,
                       name: format!("{name} {i} Time"),
-                      unique_id: format!("date_time_{entity_id}_{i}"), // TODO
-                      icon: "".into(),                                 // TODO
+                      icon: "".into(), // TODO
                       disabled_by_default: false,
                       entity_category: category as i32,
                     }));
@@ -694,12 +694,12 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
                   }
 
                   entities.push(ProtoMessage::ListEntitiesTextSensorResponse(ListEntitiesTextSensorResponse {
-                    object_id: format!("{device_id}_{entity_id}_{i}"), // TODO
+                    device_id,
+                    object_id: format!("{entity_id}_{i}"), // TODO
                     key,
                     name: format!("{name} {i} Message"),
-                    unique_id: format!("text_sensor_{entity_id}_{i}"), // TODO
-                    icon: "".into(),                                   // TODO
-                    device_class: "".into(),                           // TODO
+                    icon: "".into(),         // TODO
+                    device_class: "".into(), // TODO
                     disabled_by_default: false,
                     entity_category: category as i32,
                   }));
@@ -717,12 +717,12 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
           entity_map.insert(
             command_name,
             ProtoMessage::ListEntitiesTextSensorResponse(ListEntitiesTextSensorResponse {
-              object_id: format!("{device_id}_{entity_id}"), // TODO
+              device_id,
+              object_id: entity_id,
               key,
               name,
-              unique_id: format!("text_sensor_{entity_id}"), // TODO
-              icon: "".into(),                               // TODO
-              device_class: "".into(),                       // TODO
+              icon: "".into(),         // TODO
+              device_class: "".into(), // TODO
               disabled_by_default: false,
               entity_category: category as i32,
             })

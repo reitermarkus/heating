@@ -20,13 +20,14 @@ tokio = "1"
 esphome-native-api = "0"
 actix-server = "2.6.0"
 mac_address = "1.1.8"
-phf = "0.11"
+phf = "0.13"
 schemars = "0.8.22"
 itertools = "0.14.0"
 rangemap = "1.7.0"
 
 [patch.crates-io]
-vcontrol = { git = "https://github.com/reitermarkus/vcontrol-rs" }
+# vcontrol = { git = "https://github.com/reitermarkus/vcontrol-rs" }
 # vcontrol = { path = "../vcontrol-rs" }
 webthing = { git = "https://github.com/WebThingsIO/webthing-rust" }
+# esphome-native-api = { git = "https://github.com/reitermarkus/esphome-native-api", branch = "state-channel" }
 esphome-native-api = { path = "../esphome-native-api" }

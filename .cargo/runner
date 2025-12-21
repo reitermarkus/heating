@@ -11,6 +11,5 @@ remote_path="/tmp/${binary_name}"
 ssh "${ssh_host}" "rc-service '${binary_name}' stop" || true
 ssh "${ssh_host}" "rc-service ser2net start" || true
 ssh "${ssh_host}" "kill \$(pgrep '${binary_name}')" || true
-ssh "${ssh_host}" "rm -f '${remote_path}'"
-scp "${1}" "${ssh_host}:${remote_path}"
+rsync -avz "${1}" "${ssh_host}:${remote_path}"
 ssh -t "${ssh_host}" "RUST_LOG='${RUST_LOG-}' OPTOLINK_DEVICE='${OPTOLINK_DEVICE-}' ESPHOME_ENCRYPTION_KEY='${ESPHOME_ENCRYPTION_KEY-}' '${remote_path}'"
