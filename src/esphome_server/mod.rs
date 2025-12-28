@@ -7,7 +7,8 @@ use esphome_native_api::esphomeapi::EspHomeApi;
 use esphome_native_api::parser::ProtoMessage;
 use esphome_native_api::proto::version_2025_12_1::{
   BinarySensorStateResponse, DateCommandRequest, DateStateResponse, DateTimeCommandRequest, DateTimeStateResponse,
-  ListEntitiesRequest, NumberCommandRequest, NumberStateResponse, SelectStateResponse, SubscribeStatesRequest,
+  ListEntitiesRequest, NumberCommandRequest, NumberStateResponse, SelectStateResponse,
+  SubscribeHomeAssistantStatesRequest, SubscribeHomeassistantServicesRequest, SubscribeStatesRequest,
   SwitchCommandRequest, SwitchStateResponse, TextSensorStateResponse,
 };
 use esphome_native_api::proto::version_2025_12_1::{ListEntitiesDoneResponse, SensorStateResponse};
@@ -87,7 +88,7 @@ pub async fn start(
           break;
         },
       };
-      log::debug!("Accepted request from {}", stream.peer_addr().unwrap());
+      log::info!("Accepted request from {}", stream.peer_addr().unwrap());
 
       let vcontrol_weak = vcontrol_weak.clone();
       let commands = Arc::clone(&commands);
@@ -100,9 +101,10 @@ pub async fn start(
         let mut server = EspHomeApi::builder()
           .api_version_major(1)
           .api_version_minor(42)
-          .server_info("ESPHome Rust".to_string())
-          .name("vitoligno_300c".to_string())
-          .friendly_name("Vitoligno 300-C".to_string())
+          .server_info("ESPHome Rust".into())
+          .esphome_version("2025.12.1".into()) // FIXME: Should be set by `esphome-native-api` automatically.
+          .name("vitoligno_300c".into())
+          .friendly_name("Vitoligno 300-C".into())
           .mac(mac_address.to_string())
           // .bluetooth_mac_address(bluetooth_mac_address.to_string())
           // .bluetooth_proxy_feature_flags(0b1111111)
@@ -133,11 +135,11 @@ pub async fn start(
             debug!("Received message: {:?}", message);
 
             match message {
-              ProtoMessage::SubscribeHomeassistantServicesRequest(req) => {
-                log::debug!("SubscribeHomeassistantServicesRequest: {req:#?}");
+              ProtoMessage::SubscribeHomeassistantServicesRequest(SubscribeHomeassistantServicesRequest {}) => {
+                log::debug!("SubscribeHomeassistantServicesRequest");
               },
-              ProtoMessage::SubscribeHomeAssistantStatesRequest(req) => {
-                log::debug!("SubscribeHomeAssistantStatesRequest: {req:#?}");
+              ProtoMessage::SubscribeHomeAssistantStatesRequest(SubscribeHomeAssistantStatesRequest {}) => {
+                log::debug!("SubscribeHomeAssistantStatesRequest");
               },
               ProtoMessage::ListEntitiesRequest(ListEntitiesRequest {}) => {
                 let mut entities = entity_map.values().collect::<Vec<_>>();
@@ -156,7 +158,6 @@ pub async fn start(
                   }
                 }
 
-                debug!("ListEntitiesDoneResponse");
                 tx_clone.send(ProtoMessage::ListEntitiesDoneResponse(ListEntitiesDoneResponse {})).await.unwrap();
               },
               ProtoMessage::NumberCommandRequest(NumberCommandRequest { key, state, .. }) => {
@@ -173,7 +174,7 @@ pub async fn start(
                   log::error!("Failed to set value ({state}) for {command_name}: {err}")
                 }
               },
-              ProtoMessage::SwitchCommandRequest(SwitchCommandRequest { key, state, .. }) => {
+              ProtoMessage::SwitchCommandRequest(SwitchCommandRequest { device_id, key, state }) => {
                 let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
                   warn!("Unknown switch command: {key}");
                   continue;
@@ -186,6 +187,9 @@ pub async fn start(
                 if let Err(err) = vcontrol.set(command_name, Value::Int(state as i64)).await {
                   log::error!("Failed to set value ({state}) for {command_name}: {err}")
                 }
+
+                let message = SwitchStateResponse { device_id, key, state };
+                let _ = tx.send(ProtoMessage::SwitchStateResponse(message)).await; // TODO: Handle result.
               },
               ProtoMessage::DateCommandRequest(DateCommandRequest { key, year, month, day, .. }) => {
                 let Some((command_name, _)) = entity_map.iter().find(|(_, e)| map_multi_entity_to_key(e) == key) else {
