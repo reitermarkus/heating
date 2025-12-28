@@ -507,6 +507,29 @@ pub enum MultiEntity {
   Multiple(Vec<ProtoMessage>),
 }
 
+impl MultiEntity {
+  fn map_entity_to_key(entity: &ProtoMessage) -> u32 {
+    match entity {
+      ProtoMessage::ListEntitiesBinarySensorResponse(res) => res.key,
+      ProtoMessage::ListEntitiesSensorResponse(res) => res.key,
+      ProtoMessage::ListEntitiesNumberResponse(res) => res.key,
+      ProtoMessage::ListEntitiesDateResponse(res) => res.key,
+      ProtoMessage::ListEntitiesDateTimeResponse(res) => res.key,
+      ProtoMessage::ListEntitiesTextSensorResponse(res) => res.key,
+      ProtoMessage::ListEntitiesSwitchResponse(res) => res.key,
+      ProtoMessage::ListEntitiesSelectResponse(res) => res.key,
+      _ => u32::MAX,
+    }
+  }
+
+  pub fn key(&self) -> u32 {
+    match self {
+      Self::Single(entity) => Self::map_entity_to_key(&entity),
+      Self::Multiple(entities) => entities.first().map(Self::map_entity_to_key).unwrap_or(u32::MAX),
+    }
+  }
+}
+
 impl From<ProtoMessage> for MultiEntity {
   fn from(message: ProtoMessage) -> Self {
     Self::Single(message)
