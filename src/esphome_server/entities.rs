@@ -15,6 +15,7 @@ use super::entity::{Entity, EntityType};
 
 const ENTITIES: &[(&'static str, Entity)] = &[
   // Buffer
+  ("Ecotronic_Kessel_Ein_Aus", Entity { entity_name: "Boiler", entity_type: EntityType::Switch }),
   (
     "Ecotronic_Puffer_Betriebsart",
     Entity {

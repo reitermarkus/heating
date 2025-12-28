@@ -1,3 +1,4 @@
+use std::panic;
 use std::{collections::HashMap, io, sync::Arc};
 
 use actix_server::ServerHandle;
@@ -7,6 +8,8 @@ use vcontrol::{Command, VControl, Value};
 use webthing::{BaseActionGenerator, ThingsType, WebThingServer};
 
 mod thing;
+mod update_thread;
+use update_thread::update_thread;
 
 pub async fn start(
   port: u16,
@@ -43,15 +46,33 @@ pub async fn start(
   });
   let update_thread = tokio::spawn(async move {
     log::info!("Update thread started.");
-    let res = thing::update_thread(weak_thing, rx).await;
+    let res = update_thread(weak_thing, rx).await;
     log::info!("Update thread stopped.");
     Ok(res)
   });
 
   let server_thread = async {
     tokio::select! {
-      res = server_thread => res.unwrap(),
-      res = update_thread => res.unwrap(),
+      res = server_thread => {
+        match res {
+          Ok(res) => res,
+          Err(err) => {
+            // This can only be a panic, not a cancellation, since
+            // we don't cancel the update thread anywhere.
+            panic::resume_unwind(err.into_panic())
+          }
+        }
+      },
+      res = update_thread => {
+        match res {
+          Ok(res) => res,
+          Err(err) => {
+            // This can only be a panic, not a cancellation, since
+            // we don't cancel the update thread anywhere.
+            panic::resume_unwind(err.into_panic())
+          }
+        }
+      },
     }
   };
 

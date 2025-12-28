@@ -1,11 +1,11 @@
 use std::{
   collections::HashMap,
-  sync::{Arc, RwLock, Weak, mpsc::channel},
+  sync::{Arc, RwLock, Weak},
 };
 
 use schemars::{schema, schema_for};
 use serde_json::json;
-use tokio::sync::broadcast::{Receiver, error::RecvError};
+use tokio::sync::oneshot;
 use webthing::{BaseProperty, BaseThing, Thing, property::ValueForwarder};
 
 use vcontrol::{
@@ -49,7 +49,7 @@ impl ValueForwarder for VcontrolValueForwarder {
     let vcontrol = self.vcontrol.upgrade().ok_or("Device connection closed.")?;
     let command_name = self.command_name;
 
-    let (tx, rx) = channel();
+    let (tx, rx) = oneshot::channel();
 
     let arbiter = actix_rt::Arbiter::new();
     arbiter.spawn(async move {
@@ -58,7 +58,7 @@ impl ValueForwarder for VcontrolValueForwarder {
       tx.send(res).unwrap();
     });
 
-    let res = rx.recv().unwrap();
+    let res = rx.blocking_recv().unwrap();
     arbiter.stop();
 
     match res {
@@ -177,79 +177,9 @@ pub async fn make_thing(
   for (command_name, command) in &commands {
     add_command(&mut thing, Arc::downgrade(&vcontrol), &device, command_name, command);
   }
-  drop(vcontrol);
 
   let thing: Box<dyn Thing + 'static> = Box::new(thing);
   let thing = Arc::new(RwLock::new(thing));
 
   thing
-}
-
-pub async fn update_thread(
-  weak_thing: Weak<RwLock<Box<dyn Thing + 'static>>>,
-  mut rx: Receiver<(&'static str, Value)>,
-) {
-  while let Some(thing) = weak_thing.upgrade() {
-    let recv_res = match rx.recv().await {
-      Ok(res) => res,
-      Err(RecvError::Closed) => break,
-      Err(RecvError::Lagged(n)) => {
-        log::warn!("Receiver lagged, {n} messages skipped.");
-        continue;
-      },
-    };
-
-    let (command_name, new_value) = recv_res;
-
-    let thing = thing.clone();
-    actix_rt::task::spawn_blocking(move || {
-      let mut t = thing.write().unwrap();
-      let prop = t.find_property(command_name).unwrap();
-
-      let old_value = prop.get_value();
-
-      let new_value = if let Some(value) = Some(new_value) {
-        // OutputValue
-        let value = value; // value.value
-        let mapping: Option<&'static phf::map::Map<i32, &'static str>> = None; // value.mapping
-
-        let new_value = json!(value);
-
-        if old_value != new_value {
-          if let Some(mapping) = mapping {
-            let mapping_found = match value {
-              Value::Int(value) => {
-                if let Ok(value) = i32::try_from(value) {
-                  mapping.contains_key(&value)
-                } else {
-                  false
-                }
-              },
-              _ => false,
-            };
-
-            if !mapping_found {
-              log::warn!("Property '{}' does not have an enum mapping for {:?}.", command_name, value);
-            }
-          }
-        }
-
-        new_value
-      } else {
-        json!(null)
-      };
-
-      if let Err(err) = prop.set_cached_value(new_value.clone()) {
-        log::error!("Failed setting cached value for property '{}': {}", command_name, err)
-      }
-
-      if old_value != new_value {
-        log::debug!("Property '{}' changed from {} to {}.", command_name, old_value, new_value);
-      }
-
-      t.property_notify(command_name.to_string(), new_value);
-    })
-    .await
-    .unwrap();
-  }
 }
