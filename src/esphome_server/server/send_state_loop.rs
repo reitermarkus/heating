@@ -10,7 +10,7 @@ use vcontrol::{Command, VControl, Value};
 use super::send_entity_state;
 use crate::esphome_server::entities::MultiEntity;
 
-pub async fn send_state(
+pub async fn send_state_loop(
   tx: mpsc::Sender<ProtoMessage>,
   mut vcontrol_rx: broadcast::Receiver<(&'static str, Value)>,
   vcontrol_weak: Weak<Mutex<VControl>>,

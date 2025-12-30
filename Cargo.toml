@@ -27,7 +27,7 @@ rangemap = "1.7.0"
 
 [patch.crates-io]
 # vcontrol = { git = "https://github.com/reitermarkus/vcontrol-rs" }
-# vcontrol = { path = "../vcontrol-rs" }
+vcontrol = { path = "../vcontrol-rs" }
 webthing = { git = "https://github.com/WebThingsIO/webthing-rust" }
 # esphome-native-api = { git = "https://github.com/reitermarkus/esphome-native-api", branch = "state-channel" }
 esphome-native-api = { path = "../esphome-native-api" }
