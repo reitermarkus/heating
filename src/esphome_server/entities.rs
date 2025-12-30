@@ -495,6 +495,7 @@ fn unit_to_device_class(unit: &str, entity_name: &str) -> &'static str {
     "kg" => "weight",
     "h" | "min" | "s" => "duration",
     "kg/h" => "volume_flow_rate",
+    "%" => "",
     unit => {
       warn!("Unknown device class for entity {entity_name} unit: {unit}");
       "None"
@@ -552,7 +553,14 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
 
     let name = entity.entity_name.to_owned();
     let entity_id = entity.entity_name.to_lowercase().split(' ').collect::<Vec<&str>>().join("_");
-    let device_class = unit_to_device_class(unit, &entity_id);
+    let device_class = match entity.entity_type {
+      EntityType::Switch | EntityType::BinarySensor { .. } => "",
+      EntityType::Date { .. } => "date",
+      EntityType::DateTime { .. } => "timestamp",
+      EntityType::Select { .. } => "enum",
+      EntityType::TextSensor { .. } => "",
+      _ => unit_to_device_class(unit, &entity_id),
+    };
 
     if command.access_mode().is_write() {
       assert_eq!(entity.category(), EntityCategory::Config, "Wrong category for {}", entity.entity_name);

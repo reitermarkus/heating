@@ -1,5 +1,6 @@
 use esphome_native_api::proto::version_2025_12_1::EntityCategory;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EntityType {
   Number { step: f32 },
   Sensor { accuracy_decimals: i32, category: EntityCategory },

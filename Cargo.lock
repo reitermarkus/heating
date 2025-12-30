@@ -798,12 +798,16 @@ version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "byteorder",
+ "bytes",
  "constant_time_eq",
+ "futures",
  "log",
  "noise-protocol",
  "noise-rust-crypto",
  "prost",
  "tokio",
+ "tokio-stream",
+ "tokio-util",
  "typed-builder",
 ]
 
@@ -2461,6 +2465,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-stream"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
+dependencies = [
+ "futures-core",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2676,8 +2691,6 @@ dependencies = [
 [[package]]
 name = "vcontrol"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ede7aba4886470b312938a87574bdbc6943dc94accf77ad64a411712bef9297d"
 dependencies = [
  "anyhow",
  "arrayref",
