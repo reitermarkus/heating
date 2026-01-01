@@ -603,7 +603,8 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
             accuracy_decimals,
             force_update: false,
             device_class: device_class.to_owned(),
-            state_class: 1,            // SensorStateClass::StateClassMeasurement as i32 // TODO
+            state_class: 1, // SensorStateClass::StateClassMeasurement as i32 // TODO
+            #[allow(deprecated)]
             legacy_last_reset_type: 0, // SensorLastResetType::LastResetNone as i32      // TODO
             disabled_by_default: false,
             entity_category: category as i32, // EntityCategory::None as i32 // TODO

@@ -10,13 +10,12 @@ opt-level = 3
 lto = true
 
 [dependencies]
-actix-rt = "2"
 env_logger = "0.11"
 log = "0.4"
 vcontrol = { version = "0.5.0", features = ["schemars"] }
 webthing = "0.15"
 serde_json = "1"
-tokio = "1"
+tokio = { version = "1", features = ["rt-multi-thread"]}
 esphome-native-api = "0"
 actix-server = "2.6.0"
 mac_address = "1.1.8"

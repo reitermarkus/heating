@@ -10,9 +10,8 @@ use crate::command_poller::poll_thread;
 
 mod command_poller;
 mod esphome_server;
-mod webthing_server;
 
-#[actix_rt::main]
+#[tokio::main]
 async fn main() {
   env_logger::init();
 
@@ -25,14 +24,10 @@ async fn main() {
   };
   let vcontrol = VControl::connect(device).await.expect("Failed to connect to device");
 
-  let port = env::var("PORT").map(|s| s.parse::<u16>().expect("PORT is invalid")).unwrap_or(8888);
-
   let sigint = async { signal(SignalKind::interrupt()).unwrap().recv().await };
   let sigterm = async { signal(SignalKind::terminate()).unwrap().recv().await };
 
   let (vcontrol, rx, poll_thread, commands) = poll_thread(vcontrol).await;
-  let (webthing_server, webthing_server_handle, webthing_server_stopped) =
-    webthing_server::start(port, vcontrol.clone(), commands.clone(), rx.resubscribe()).await;
   let (esphome_server, esphome_server_stop, esphome_server_stopped) =
     esphome_server::start(6053, Arc::downgrade(&vcontrol), commands.clone(), rx).await;
 
@@ -52,17 +47,13 @@ async fn main() {
     _ = sigterm => {
       log::info!("Received SIGTERM, stopping server.");
     },
-    _ = webthing_server_stopped => (),
     _ = esphome_server_stopped => (),
     _ = poll_thread_stopped => (),
   }
   drop(vcontrol);
 
-  log::info!("Stopping WebThing server.");
-  let webthing_server_stop = webthing_server_handle.stop(true);
   log::info!("Stopping ESPHome server.");
   esphome_server_stop.send(()).unwrap();
-  webthing_server_stop.await;
 
   match esphome_server.await {
     Ok(()) => {
@@ -70,16 +61,6 @@ async fn main() {
     },
     Err(err) => {
       log::error!("ESPHome server crashed: {err}");
-      process::exit(1);
-    },
-  }
-
-  match webthing_server.await {
-    Ok(()) => {
-      log::info!("WebThing server stopped.");
-    },
-    Err(err) => {
-      log::error!("WebThing server crashed: {err}");
       process::exit(1);
     },
   }
