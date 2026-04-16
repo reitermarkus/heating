@@ -13,7 +13,7 @@ use vcontrol::{Command, DataType};
 
 use super::entity::{Entity, EntityType};
 
-const ENTITIES: &[(&'static str, Entity)] = &[
+const ENTITIES: &[(&str, Entity)] = &[
   // Buffer
   ("Ecotronic_Kessel_Ein_Aus", Entity { entity_name: "Boiler", entity_type: EntityType::Switch }),
   (
@@ -504,7 +504,7 @@ fn unit_to_device_class(unit: &str, entity_name: &str) -> &'static str {
 }
 
 pub enum MultiEntity {
-  Single(ProtoMessage),
+  Single(Box<ProtoMessage>),
   Multiple(Vec<ProtoMessage>),
 }
 
@@ -525,7 +525,7 @@ impl MultiEntity {
 
   pub fn key(&self) -> u32 {
     match self {
-      Self::Single(entity) => Self::map_entity_to_key(&entity),
+      Self::Single(entity) => Self::map_entity_to_key(entity),
       Self::Multiple(entities) => entities.first().map(Self::map_entity_to_key).unwrap_or(u32::MAX),
     }
   }
@@ -533,7 +533,7 @@ impl MultiEntity {
 
 impl From<ProtoMessage> for MultiEntity {
   fn from(message: ProtoMessage) -> Self {
-    Self::Single(message)
+    Self::Single(Box::new(message))
   }
 }
 
@@ -555,7 +555,7 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
     let entity_id = entity.entity_name.to_lowercase().split(' ').collect::<Vec<&str>>().join("_");
     let device_class = match entity.entity_type {
       EntityType::Switch | EntityType::BinarySensor { .. } => "",
-      EntityType::Date { .. } => "date",
+      EntityType::Date => "date",
       EntityType::DateTime { .. } => "timestamp",
       EntityType::Select { .. } => "enum",
       EntityType::TextSensor { .. } => "",
@@ -708,7 +708,6 @@ pub fn entities(commands: &HashMap<&'static str, &'static Command>) -> HashMap<&
             command_name,
             MultiEntity::Multiple(
               (0..block_count)
-                .into_iter()
                 .flat_map(|i| {
                   let mut entities = Vec::new();
 
