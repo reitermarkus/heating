@@ -29,7 +29,7 @@ async fn main() {
 
   let (vcontrol, rx, poll_thread, commands) = poll_thread(vcontrol).await;
   let (esphome_server, esphome_server_stop, esphome_server_stopped) =
-    esphome_server::start(6053, Arc::downgrade(&vcontrol), commands.clone(), rx).await;
+    esphome_server::start(Arc::downgrade(&vcontrol), commands.clone(), rx).await;
 
   let (poll_thread_stopped_tx, poll_thread_stopped) = oneshot::channel();
   let poll_thread = tokio::spawn(async {
