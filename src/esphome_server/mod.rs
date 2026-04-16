@@ -26,7 +26,6 @@ mod server;
 use server::{handle_date_command, handle_date_time_command, send_state_loop};
 
 pub async fn start(
-  port: u16,
   vcontrol_weak: Weak<tokio::sync::Mutex<VControl>>,
   commands: HashMap<&'static str, &'static Command>,
   vcontrol_rx: broadcast::Receiver<(&'static str, vcontrol::Value)>,
@@ -36,7 +35,7 @@ pub async fn start(
 
   let entities = entities::entities(&commands);
 
-  let addr: SocketAddr = SocketAddr::from(([0, 0, 0, 0], port));
+  let addr = SocketAddr::from(([0, 0, 0, 0], 6053));
   let socket = TcpSocket::new_v4().unwrap();
   socket.set_reuseaddr(true).unwrap();
   socket.bind(addr).unwrap();
@@ -45,6 +44,7 @@ pub async fn start(
   log::debug!("Listening on: {}", addr);
 
   let mac_address = get_mac_address().unwrap().unwrap_or_default();
+  let encryption_key = env::var("ESPHOME_ENCRYPTION_KEY").unwrap_or_default();
 
   let main_server = async move {
     log::info!("ESPHome server started.");
@@ -68,8 +68,7 @@ pub async fn start(
       let commands = commands.clone();
       let vcontrol_rx = vcontrol_rx.resubscribe();
       let entity_map = entity_map.clone();
-
-      let encryption_key = env::var("ESPHOME_ENCRYPTION_KEY").unwrap_or_default();
+      let encryption_key = encryption_key.clone();
 
       tokio::task::spawn(async move {
         log::info!("Starting ESPHome API server to {peer_addr}.");
@@ -87,7 +86,7 @@ pub async fn start(
           .manufacturer("Viessmann".to_string())
           .model("Vitoligno 300-C".to_string())
           .suggested_area("Boiler Room".to_string())
-          .encryption_key(encryption_key)
+          .encryption_key(encryption_key.clone())
           .build();
 
         let (tx, mut rx) = server.start(stream).await.expect("Failed to start server");
