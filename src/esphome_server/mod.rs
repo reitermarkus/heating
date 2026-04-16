@@ -129,7 +129,7 @@ pub async fn start(
               'outer: for entity in entities {
                 match entity {
                   MultiEntity::Single(entity) => {
-                    if let Err(err) = tx_clone.send(entity.clone()).await {
+                    if let Err(err) = tx_clone.send(*entity.clone()).await {
                       res = Err(err);
                       break 'outer;
                     }

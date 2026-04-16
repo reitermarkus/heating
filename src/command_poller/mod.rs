@@ -88,7 +88,7 @@ pub async fn poll_thread(
 
         for (command_name, command) in commands {
           let addr = command.addr();
-          let block_len = command.block_len() as usize;
+          let block_len = command.block_len();
 
           let start = (addr - start_addr) as usize;
 
