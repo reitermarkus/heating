@@ -17,7 +17,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread"]}
 esphome-native-api = "2"
 mac_address = "1.1.8"
-phf = "0.13"
+phf = "0.14"
 itertools = "0.14.0"
 rangemap = "1.7.0"
 
