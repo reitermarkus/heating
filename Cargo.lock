@@ -394,9 +394,9 @@ dependencies = [
 
 [[package]]
 name = "esphome-native-api"
-version = "2.0.7"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dd8e6111666089fdec09c3c4f9e61535a5eff1594ff5156908f8a39a6ad6f84"
+checksum = "4251b5fa1b13310513b7165234061266f8c25ab1f6801e5a392d3b8372bdf7e8"
 dependencies = [
  "base64",
  "byteorder",
@@ -407,6 +407,7 @@ dependencies = [
  "noise-protocol",
  "noise-rust-crypto",
  "prost",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tokio-util",
