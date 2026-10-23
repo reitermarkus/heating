@@ -1,4 +1,4 @@
-use esphome_native_api::proto::version_2026_6_2::EntityCategory;
+use esphome_native_api::proto::EntityCategory;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EntityType {

@@ -3,11 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 use esphome_native_api::{
   parser::ProtoMessage,
   proto::{
-    SelectCommandRequest, SelectStateResponse,
-    version_2026_6_2::{
-      DateCommandRequest, DateStateResponse, DateTimeCommandRequest, DateTimeStateResponse, NumberCommandRequest,
-      NumberStateResponse, SwitchCommandRequest, SwitchStateResponse,
-    },
+    DateCommandRequest, DateStateResponse, DateTimeCommandRequest, DateTimeStateResponse, NumberCommandRequest,
+    NumberStateResponse, SelectCommandRequest, SelectStateResponse, SwitchCommandRequest, SwitchStateResponse,
   },
 };
 use tokio::sync::{

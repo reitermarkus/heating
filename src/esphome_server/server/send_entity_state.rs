@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Weak};
 
 use esphome_native_api::{
   parser::ProtoMessage,
-  proto::version_2026_6_2::{
+  proto::{
     BinarySensorStateResponse, DateStateResponse, DateTimeStateResponse, NumberStateResponse, SelectStateResponse,
     SensorStateResponse, SwitchStateResponse, TextSensorStateResponse,
   },
