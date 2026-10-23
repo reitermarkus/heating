@@ -8,7 +8,7 @@ use std::{
 use esphome_native_api::{
   esphomeapi::EspHomeApi,
   parser::ProtoMessage,
-  proto::version_2025_12_1::{
+  proto::version_2026_6_2::{
     ListEntitiesDoneResponse, ListEntitiesRequest, SubscribeHomeAssistantStatesRequest,
     SubscribeHomeassistantServicesRequest, SubscribeStatesRequest,
   },
@@ -83,7 +83,7 @@ pub async fn start(
       tokio::task::spawn(async move {
         log::info!("Starting ESPHome API server to {peer_addr}.");
 
-        let mut server = EspHomeApi::builder()
+        let server = EspHomeApi::builder()
           .api_version_major(1)
           .api_version_minor(42)
           .server_info("ESPHome Rust".into())

@@ -4,7 +4,7 @@ use esphome_native_api::{
   parser::ProtoMessage,
   proto::{
     SelectCommandRequest, SelectStateResponse,
-    version_2025_12_1::{
+    version_2026_6_2::{
       DateCommandRequest, DateStateResponse, DateTimeCommandRequest, DateTimeStateResponse, NumberCommandRequest,
       NumberStateResponse, SwitchCommandRequest, SwitchStateResponse,
     },
