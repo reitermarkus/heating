@@ -2,9 +2,12 @@ use std::{collections::HashMap, sync::Arc};
 
 use esphome_native_api::{
   parser::ProtoMessage,
-  proto::version_2025_12_1::{
-    DateCommandRequest, DateStateResponse, DateTimeCommandRequest, DateTimeStateResponse, NumberCommandRequest,
-    NumberStateResponse, SwitchCommandRequest, SwitchStateResponse,
+  proto::{
+    SelectCommandRequest, SelectStateResponse,
+    version_2025_12_1::{
+      DateCommandRequest, DateStateResponse, DateTimeCommandRequest, DateTimeStateResponse, NumberCommandRequest,
+      NumberStateResponse, SwitchCommandRequest, SwitchStateResponse,
+    },
   },
 };
 use tokio::sync::{
@@ -12,7 +15,7 @@ use tokio::sync::{
   mpsc::{Sender, error::SendError},
 };
 use vcontrol::{
-  VControl, Value,
+  Command, VControl, Value,
   types::{Date, DateTime},
 };
 
@@ -108,6 +111,40 @@ pub async fn handle_number_command(
   .await
 }
 
+pub async fn handle_select_command(
+  request: SelectCommandRequest,
+  entity_map: &HashMap<&str, MultiEntity>,
+  commands: &HashMap<&'static str, &'static Command>,
+  vcontrol: Arc<Mutex<VControl>>,
+  tx: &Sender<ProtoMessage>,
+) -> Result<(), SendError<ProtoMessage>> {
+  let key = request.key;
+  let Some((command_name, _)) = entity_map.iter().find(|(_, e)| e.key() == key) else {
+    log::warn!("Unknown select command: {key}");
+    return Ok(());
+  };
+
+  let mut vcontrol = vcontrol.lock().await;
+
+  let mapping = commands[command_name].mapping().unwrap();
+
+  let state = request.state;
+  let state_value = mapping.entries().find_map(|(&k, &v)| if v == state { Some(k) } else { None }).unwrap();
+  log::info!("Setting value for {command_name}: {state} ({state_value})");
+  if let Err(err) = vcontrol.set(command_name, Value::Int(state_value.into())).await {
+    log::error!("Failed to set value ({state_value}) for {command_name}: {err}");
+    return Ok(());
+  }
+
+  tx.send(ProtoMessage::SelectStateResponse(SelectStateResponse {
+    key,
+    state,
+    missing_state: false,
+    device_id: request.device_id,
+  }))
+  .await
+}
+
 pub async fn handle_switch_command(
   request: SwitchCommandRequest,
   entity_map: &HashMap<&str, MultiEntity>,
@@ -125,7 +162,8 @@ pub async fn handle_switch_command(
   let state = request.state;
   log::info!("Setting value for {command_name}: {state}");
   if let Err(err) = vcontrol.set(command_name, Value::Int(state as i64)).await {
-    log::error!("Failed to set value ({state}) for {command_name}: {err}")
+    log::error!("Failed to set value ({state}) for {command_name}: {err}");
+    return Ok(());
   }
 
   tx.send(ProtoMessage::SwitchStateResponse(SwitchStateResponse { key, state, device_id: request.device_id })).await

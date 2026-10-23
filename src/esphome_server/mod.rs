@@ -18,7 +18,7 @@ use tokio::task::JoinHandle;
 use vcontrol::{Command, VControl};
 
 use crate::esphome_server::entities::MultiEntity;
-use crate::esphome_server::server::{handle_number_command, handle_switch_command};
+use crate::esphome_server::server::{handle_number_command, handle_select_command, handle_switch_command};
 
 mod entities;
 mod entity;
@@ -162,6 +162,10 @@ pub async fn start(
             ProtoMessage::NumberCommandRequest(request) => {
               let Some(vcontrol) = vcontrol_weak.upgrade() else { break };
               handle_number_command(request, &entity_map, vcontrol, &tx).await
+            },
+            ProtoMessage::SelectCommandRequest(request) => {
+              let Some(vcontrol) = vcontrol_weak.upgrade() else { break };
+              handle_select_command(request, &entity_map, &commands, vcontrol, &tx).await
             },
             ProtoMessage::SwitchCommandRequest(request) => {
               let Some(vcontrol) = vcontrol_weak.upgrade() else { break };
