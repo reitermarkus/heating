@@ -8,7 +8,7 @@ use std::{
 use esphome_native_api::{
   esphomeapi::EspHomeApi,
   parser::ProtoMessage,
-  proto::version_2026_6_2::{
+  proto::{
     ListEntitiesDoneResponse, ListEntitiesRequest, SubscribeHomeAssistantStatesRequest,
     SubscribeHomeassistantServicesRequest, SubscribeStatesRequest,
   },
@@ -87,19 +87,19 @@ pub async fn start(
           .api_version_major(1)
           .api_version_minor(42)
           .server_info("ESPHome Rust".into())
-          // .esphome_version("2025.12.1".into()) // FIXME: Should be set by `esphome-native-api` automatically.
           .name("vitoligno_300c".into())
           .friendly_name("Vitoligno 300-C".into())
           .mac(mac_address.to_string())
-          // .bluetooth_mac_address(bluetooth_mac_address.to_string())
-          // .bluetooth_proxy_feature_flags(0b1111111)
           .manufacturer("Viessmann".to_string())
           .model("Vitoligno 300-C".to_string())
           .suggested_area("Boiler Room".to_string())
           .encryption_key(encryption_key.clone())
-          .build();
+          .build()
+          .unwrap();
 
-        let (tx, mut rx) = server.start(stream).await.expect("Failed to start server");
+        let connection = server.start(stream).await.expect("Failed to start server");
+        let mut rx = connection.receiver();
+        let tx = connection.sender();
         let tx_clone = tx.clone();
 
         let entity_map = Arc::clone(&entity_map);

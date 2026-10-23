@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use esphome_native_api::{
   parser::ProtoMessage,
-  proto::version_2026_6_2::{
+  proto::{
     EntityCategory, ListEntitiesBinarySensorResponse, ListEntitiesDateResponse, ListEntitiesDateTimeResponse,
     ListEntitiesNumberResponse, ListEntitiesSelectResponse, ListEntitiesSensorResponse, ListEntitiesSwitchResponse,
     ListEntitiesTextSensorResponse, NumberMode,
