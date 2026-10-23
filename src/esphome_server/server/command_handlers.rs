@@ -21,6 +21,7 @@ use vcontrol::{
 
 use crate::esphome_server::entities::MultiEntity;
 
+#[expect(clippy::result_large_err)]
 pub async fn handle_date_command(
   request: DateCommandRequest,
   entity_map: &HashMap<&str, MultiEntity>,
@@ -52,6 +53,7 @@ pub async fn handle_date_command(
   .await
 }
 
+#[expect(clippy::result_large_err)]
 pub async fn handle_date_time_command(
   request: DateTimeCommandRequest,
   entity_map: &HashMap<&str, MultiEntity>,
@@ -81,6 +83,7 @@ pub async fn handle_date_time_command(
   .await
 }
 
+#[expect(clippy::result_large_err)]
 pub async fn handle_number_command(
   request: NumberCommandRequest,
   entity_map: &HashMap<&str, MultiEntity>,
@@ -111,6 +114,7 @@ pub async fn handle_number_command(
   .await
 }
 
+#[expect(clippy::result_large_err)]
 pub async fn handle_select_command(
   request: SelectCommandRequest,
   entity_map: &HashMap<&str, MultiEntity>,
@@ -145,6 +149,7 @@ pub async fn handle_select_command(
   .await
 }
 
+#[expect(clippy::result_large_err)]
 pub async fn handle_switch_command(
   request: SwitchCommandRequest,
   entity_map: &HashMap<&str, MultiEntity>,
