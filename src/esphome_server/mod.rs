@@ -1,24 +1,34 @@
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use std::sync::{Arc, Weak};
-use std::{env, io};
+use std::{
+  collections::HashMap,
+  env, io,
+  net::SocketAddr,
+  sync::{Arc, Weak},
+};
 
-use esphome_native_api::esphomeapi::EspHomeApi;
-use esphome_native_api::parser::ProtoMessage;
-use esphome_native_api::proto::version_2025_12_1::{
-  ListEntitiesDoneResponse, ListEntitiesRequest, SubscribeHomeAssistantStatesRequest,
-  SubscribeHomeassistantServicesRequest, SubscribeStatesRequest,
+use esphome_native_api::{
+  esphomeapi::EspHomeApi,
+  parser::ProtoMessage,
+  proto::version_2025_12_1::{
+    ListEntitiesDoneResponse, ListEntitiesRequest, SubscribeHomeAssistantStatesRequest,
+    SubscribeHomeassistantServicesRequest, SubscribeStatesRequest,
+  },
 };
 
 use mac_address::get_mac_address;
-use tokio::net::TcpSocket;
-use tokio::sync::broadcast;
-use tokio::sync::oneshot::{self, Receiver, Sender};
-use tokio::task::JoinHandle;
+use tokio::{
+  net::TcpSocket,
+  sync::{
+    broadcast,
+    oneshot::{self, Receiver, Sender},
+  },
+  task::JoinHandle,
+};
 use vcontrol::{Command, VControl};
 
-use crate::esphome_server::entities::MultiEntity;
-use crate::esphome_server::server::{handle_number_command, handle_select_command, handle_switch_command};
+use crate::esphome_server::{
+  entities::MultiEntity,
+  server::{handle_number_command, handle_select_command, handle_switch_command},
+};
 
 mod entities;
 mod entity;

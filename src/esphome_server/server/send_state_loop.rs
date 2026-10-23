@@ -1,10 +1,11 @@
-use std::collections::HashMap;
-use std::iter;
-use std::sync::{Arc, Weak};
+use std::{
+  collections::HashMap,
+  iter,
+  sync::{Arc, Weak},
+};
 
 use esphome_native_api::parser::ProtoMessage;
-use tokio::sync::mpsc::error::SendError;
-use tokio::sync::{Mutex, broadcast, mpsc};
+use tokio::sync::{Mutex, broadcast, mpsc, mpsc::error::SendError};
 use vcontrol::{Command, VControl, Value};
 
 use super::send_entity_state;

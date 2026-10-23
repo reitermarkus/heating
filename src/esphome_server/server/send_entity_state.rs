@@ -1,10 +1,11 @@
-use std::collections::HashMap;
-use std::sync::Weak;
+use std::{collections::HashMap, sync::Weak};
 
-use esphome_native_api::parser::ProtoMessage;
-use esphome_native_api::proto::version_2025_12_1::{
-  BinarySensorStateResponse, DateStateResponse, DateTimeStateResponse, NumberStateResponse, SelectStateResponse,
-  SensorStateResponse, SwitchStateResponse, TextSensorStateResponse,
+use esphome_native_api::{
+  parser::ProtoMessage,
+  proto::version_2025_12_1::{
+    BinarySensorStateResponse, DateStateResponse, DateTimeStateResponse, NumberStateResponse, SelectStateResponse,
+    SensorStateResponse, SwitchStateResponse, TextSensorStateResponse,
+  },
 };
 use tokio::sync::mpsc::error::SendError;
 use vcontrol::{Command, VControl};
