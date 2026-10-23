@@ -18,6 +18,7 @@ fn bool_state(value: &vcontrol::Value) -> Option<bool> {
   }
 }
 
+#[expect(clippy::result_large_err)]
 pub async fn send_entity_state(
   tx: tokio::sync::mpsc::Sender<ProtoMessage>,
   vcontrol: Weak<tokio::sync::Mutex<VControl>>,
