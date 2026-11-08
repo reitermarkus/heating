@@ -85,7 +85,7 @@ pub async fn start(
 
         let server = EspHomeApi::builder()
           .api_version_major(1)
-          .api_version_minor(42)
+          .api_version_minor(15)
           .server_info("ESPHome Rust".into())
           .name("vitoligno_300c".into())
           .friendly_name("Vitoligno 300-C".into())
