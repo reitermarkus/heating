@@ -9,8 +9,8 @@ use esphome_native_api::{
   esphomeapi::EspHomeApi,
   parser::ProtoMessage,
   proto::{
-    ListEntitiesDoneResponse, ListEntitiesRequest, SubscribeHomeAssistantStatesRequest,
-    SubscribeHomeassistantServicesRequest, SubscribeStatesRequest,
+    DeviceCapabilitiesRequest, DeviceCapabilitiesResponse, ListEntitiesDoneResponse, ListEntitiesRequest,
+    SubscribeHomeAssistantStatesRequest, SubscribeHomeassistantServicesRequest, SubscribeStatesRequest,
   },
 };
 
@@ -199,6 +199,9 @@ pub async fn start(
               }));
 
               Ok(())
+            },
+            ProtoMessage::DeviceCapabilitiesRequest(DeviceCapabilitiesRequest {}) => {
+              tx_clone.send(ProtoMessage::DeviceCapabilitiesResponse(DeviceCapabilitiesResponse::default())).await
             },
             request => {
               log::warn!("Unhandled request: {request:?}");

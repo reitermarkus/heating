@@ -168,5 +168,11 @@ pub async fn handle_switch_command(
     return Ok(());
   }
 
-  tx.send(ProtoMessage::SwitchStateResponse(SwitchStateResponse { key, state, device_id: request.device_id })).await
+  tx.send(ProtoMessage::SwitchStateResponse(SwitchStateResponse {
+    key,
+    state,
+    device_id: request.device_id,
+    missing_state: false,
+  }))
+  .await
 }
