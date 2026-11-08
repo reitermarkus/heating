@@ -51,7 +51,7 @@ pub async fn send_entity_state(
         },
       };
 
-      let message = SwitchStateResponse { device_id, key: res.key, state };
+      let message = SwitchStateResponse { device_id, key: res.key, state, missing_state: false };
       tx.send(ProtoMessage::SwitchStateResponse(message)).await?;
     },
     ProtoMessage::ListEntitiesSensorResponse(res) => {
